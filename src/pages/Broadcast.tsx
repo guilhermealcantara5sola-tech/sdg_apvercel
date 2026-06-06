@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw } from 'lucide-react';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Settings } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -25,6 +25,16 @@ const Broadcast: React.FC = () => {
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [rotateEvery, setRotateEvery] = useState(1);
+  
+  // URL do Servidor de Automação
+  const [apiUrl, setApiUrl] = useState(() => {
+    return localStorage.getItem('api_base_url') || 'http://localhost:5000';
+  });
+
+  const handleApiUrlChange = (val: string) => {
+    setApiUrl(val);
+    localStorage.setItem('api_base_url', val);
+  };
 
   // Configurações de envio
   const [message, setMessage] = useState('');
@@ -274,6 +284,36 @@ const Broadcast: React.FC = () => {
         
         {/* Painel de Configurações */}
         <div className="lg:col-span-2 space-y-6">
+
+          {/* Conexão com o Servidor de Automação */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+              <div className="flex items-center gap-2 text-purple-600 font-bold">
+                <Settings size={20} />
+                <h3>Servidor de Automação (API)</h3>
+              </div>
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
+                botStatus === 'running' ? 'bg-green-100 text-green-700' :
+                botStatus === 'stopping' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
+              }`}>
+                {botStatus === 'running' ? 'Conectado • Executando' : 'Aguardando'}
+              </span>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase block">Endereço da API do Robô</label>
+              <input
+                type="text"
+                placeholder="http://localhost:5000"
+                disabled={isRunning}
+                value={apiUrl}
+                onChange={(e) => handleApiUrlChange(e.target.value)}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-mono"
+              />
+              <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                Por padrão, usa <code className="bg-gray-100 px-1 py-0.5 rounded">http://localhost:5000</code> (computador local). Para controlar os disparos a partir do celular ou tablet de forma online, execute o <strong className="text-purple-600 font-bold">ngrok</strong> no seu computador (<code className="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>) e cole o link público gerado no campo acima.
+              </p>
+            </div>
+          </div>
           
           {/* Sessão de Contas Rotativas */}
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">

@@ -1,10 +1,16 @@
 import { mockMetrics, mockPosts, mockMessages } from '../mocks/data';
 
-const API_BASE = 'http://localhost:5000';
+const getApiBase = () => {
+  try {
+    return localStorage.getItem('api_base_url') || 'http://localhost:5000';
+  } catch {
+    return 'http://localhost:5000';
+  }
+};
 
 export async function fetchStats() {
   try {
-    const res = await fetch(`${API_BASE}/api/stats`);
+    const res = await fetch(`${getApiBase()}/api/stats`);
     if (!res.ok) throw new Error('Failed to fetch stats');
     return await res.json();
   } catch (err) {
@@ -48,7 +54,7 @@ export async function fetchStats() {
 
 export async function fetchPosts() {
   try {
-    const res = await fetch(`${API_BASE}/api/posts`);
+    const res = await fetch(`${getApiBase()}/api/posts`);
     if (!res.ok) throw new Error('Failed to fetch posts');
     return await res.json();
   } catch (err) {
@@ -136,7 +142,7 @@ export async function fetchChatMessagesFromSupabase(folderId: string) {
 
 export async function fetchChats() {
   try {
-    const res = await fetch(`${API_BASE}/api/chats`);
+    const res = await fetch(`${getApiBase()}/api/chats`);
     if (!res.ok) throw new Error('Failed to fetch chats');
     return await res.json();
   } catch (err) {
@@ -152,7 +158,7 @@ export async function fetchChats() {
 
 export async function fetchChatMessages(folderId: string) {
   try {
-    const res = await fetch(`${API_BASE}/api/chat/${folderId}`);
+    const res = await fetch(`${getApiBase()}/api/chat/${folderId}`);
     if (!res.ok) throw new Error('Failed to fetch chat messages');
     return await res.json();
   } catch (err) {
@@ -244,7 +250,7 @@ export async function fetchFollowersFromSupabase() {
 
 export async function fetchFollowers() {
   try {
-    const res = await fetch(`${API_BASE}/api/followers`);
+    const res = await fetch(`${getApiBase()}/api/followers`);
     if (!res.ok) throw new Error('Failed to fetch followers');
     return await res.json();
   } catch (err) {
@@ -272,7 +278,7 @@ export async function fetchFollowers() {
 }
 
 export async function startBot(config: any) {
-  const res = await fetch(`${API_BASE}/api/bot/start`, {
+  const res = await fetch(`${getApiBase()}/api/bot/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config)
@@ -285,7 +291,7 @@ export async function startBot(config: any) {
 }
 
 export async function stopBot() {
-  const res = await fetch(`${API_BASE}/api/bot/stop`, {
+  const res = await fetch(`${getApiBase()}/api/bot/stop`, {
     method: 'POST'
   });
   if (!res.ok) {
@@ -297,7 +303,7 @@ export async function stopBot() {
 
 export async function fetchBotStatus() {
   try {
-    const res = await fetch(`${API_BASE}/api/bot/status`);
+    const res = await fetch(`${getApiBase()}/api/bot/status`);
     if (!res.ok) throw new Error('Failed to fetch bot status');
     return await res.json();
   } catch (err) {
