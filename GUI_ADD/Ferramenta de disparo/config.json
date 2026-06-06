@@ -1,0 +1,7 @@
+{
+  "username": "seu_usuario",
+  "password": "sua_senha",
+  "message": "Olá! Vi seu perfil e achei interessante. Como você está?",
+  "min_delay_seconds": 60,
+  "max_delay_seconds": 120
+}
