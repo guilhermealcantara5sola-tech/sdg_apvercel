@@ -36,7 +36,7 @@ accounts.json
 token.txt
 
 # PyInstaller Outputs
-server.exe
+/server.exe
 *.spec
 build/
 dist/

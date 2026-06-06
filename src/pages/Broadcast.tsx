@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Settings } from 'lucide-react';
+import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount, fetchConnectionInfo } from '../utils/api';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Settings, QrCode, Download } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -35,6 +35,12 @@ const Broadcast: React.FC = () => {
   const [apiToken, setApiToken] = useState(() => {
     return localStorage.getItem('api_token') || '';
   });
+
+  // Estados de Pareamento via QR Code
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [pairingDetails, setPairingDetails] = useState<any>(null);
+  const [loadingQr, setLoadingQr] = useState(false);
 
   const handleApiUrlChange = (val: string) => {
     setApiUrl(val);
@@ -102,6 +108,56 @@ const Broadcast: React.FC = () => {
       console.warn('Could not read config from localStorage:', e);
     }
   }, []);
+
+  // Verificar se há parâmetros de pareamento na URL (ao acessar via QR Code)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const urlParam = params.get('api_url');
+      const tokenParam = params.get('api_token');
+      
+      if (urlParam || tokenParam) {
+        if (urlParam) {
+          setApiUrl(urlParam);
+          localStorage.setItem('api_base_url', urlParam);
+        }
+        if (tokenParam) {
+          setApiToken(tokenParam);
+          localStorage.setItem('api_token', tokenParam);
+        }
+        
+        // Limpa os parâmetros da barra de endereços para ficar limpo
+        window.history.replaceState({}, document.title, window.location.pathname);
+        alert('📱 Conexão estabelecida! Aparelho pareado com sucesso.');
+      }
+    } catch (err) {
+      console.error('Error parsing pairing query params:', err);
+    }
+  }, []);
+
+  // Gerar QR Code de pareamento consultando o servidor local
+  const handleGenerateQr = async () => {
+    setLoadingQr(true);
+    try {
+      const info = await fetchConnectionInfo();
+      setPairingDetails(info);
+      
+      // Se tiver ngrok detectado no computador, usa ele. Senão cai no IP local (localhost)
+      const targetApiUrl = info.ngrok_url || info.local_url;
+      
+      // Cria a URL de pareamento apontando para a instância atual do Vercel/Web App
+      const pairingLink = `${window.location.origin}${window.location.pathname}?api_url=${encodeURIComponent(targetApiUrl)}&api_token=${encodeURIComponent(info.api_token)}`;
+      
+      // Gera a imagem do QR Code
+      const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pairingLink)}`;
+      setQrCodeUrl(qrImgUrl);
+      setShowQrCode(true);
+    } catch (err) {
+      alert('Não foi possível obter dados de conexão. O servidor Python local está rodando e online?');
+    } finally {
+      setLoadingQr(false);
+    }
+  };
 
   // Carregar contas do computador ao montar ou mudar dados da conexão
   useEffect(() => {
@@ -371,6 +427,59 @@ const Broadcast: React.FC = () => {
             <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
               Por padrão, usa <code className="bg-gray-100 px-1 py-0.5 rounded">http://localhost:5000</code>. Para controlar os disparos a partir do celular ou tablet de forma online, execute o <strong className="text-purple-600 font-bold">ngrok</strong> no computador (<code className="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>), cole o link público gerado e insira a <strong className="text-purple-600 font-bold">Chave de Pareamento</strong> que aparece no terminal do computador.
             </p>
+
+            {/* Ações de Download do Servidor e Sincronização via QR Code */}
+            <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-gray-50">
+              <a
+                href="/server.exe"
+                download="server.exe"
+                className="flex items-center gap-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 px-4 py-2.5 rounded-xl transition-all"
+              >
+                <Download size={14} />
+                Baixar Servidor Windows (.exe)
+              </a>
+              <button
+                type="button"
+                onClick={handleGenerateQr}
+                disabled={loadingQr}
+                className="flex items-center gap-2 text-xs font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 px-4 py-2.5 rounded-xl transition-all"
+              >
+                <QrCode size={14} />
+                {loadingQr ? 'Carregando...' : showQrCode ? 'Ocultar QR Code' : 'Parear Celular via QR Code'}
+              </button>
+            </div>
+
+            {/* Painel do QR Code de Pareamento */}
+            {showQrCode && (
+              <div className="mt-4 p-5 bg-purple-50/50 border border-purple-100 rounded-2xl flex flex-col md:flex-row items-center gap-5 animate-fadeIn">
+                <div className="bg-white p-3 rounded-xl shadow-sm border border-purple-100/30 shrink-0">
+                  {qrCodeUrl && (
+                    <img src={qrCodeUrl} alt="QR Code de Pareamento" className="w-36 h-36" />
+                  )}
+                </div>
+                <div className="space-y-2 text-left flex-1">
+                  <h4 className="text-sm font-bold text-purple-800">📱 Pareamento Instantâneo pelo Celular</h4>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    1. Abra a câmera do seu celular ou tablet.<br />
+                    2. Aponte para o QR Code ao lado.<br />
+                    3. Toque no link que aparecer para abrir a página já sincronizada com o seu computador automaticamente!
+                  </p>
+                  {pairingDetails && (
+                    <div className="pt-1 text-[10px] text-gray-400 font-mono space-y-0.5">
+                      <div>
+                        Status Ngrok: {' '}
+                        {pairingDetails.ngrok_url ? (
+                          <span className="text-green-600 font-bold">Ativo ({pairingDetails.ngrok_url})</span>
+                        ) : (
+                          <span className="text-amber-500 font-semibold">Inativo (Apenas rede local)</span>
+                        )}
+                      </div>
+                      <div>Chave de Segurança: <span className="text-purple-700 font-bold">{pairingDetails.api_token}</span></div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Sessão de Contas Rotativas */}

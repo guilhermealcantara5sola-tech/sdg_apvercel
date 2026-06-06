@@ -66,8 +66,13 @@ def verify_token():
         return
     
     # Permite healthcheck ou rotas publicas sem token
-    if request.path == '/' or request.path == '/api/health':
+    if request.path in ('/', '/api/health'):
         return
+        
+    # Permite carregar info de pareamento se a requisição vier do próprio PC (local)
+    if request.path == '/api/connection-info':
+        if request.remote_addr in ('127.0.0.1', '::1', 'localhost'):
+            return
         
     auth_token = request.headers.get('X-API-Key')
     if auth_token != SERVER_TOKEN:
@@ -761,6 +766,34 @@ def bot_status_route():
 @app.route('/api/health')
 def health():
     return jsonify({"status": "ok", "requires_auth": True})
+
+def get_ngrok_url():
+    try:
+        import urllib.request
+        import json
+        req = urllib.request.Request('http://127.0.0.1:4040/api/tunnels')
+        with urllib.request.urlopen(req, timeout=1) as response:
+            data = json.loads(response.read().decode())
+            tunnels = data.get('tunnels', [])
+            for tunnel in tunnels:
+                public_url = tunnel.get('public_url', '')
+                if public_url.startswith('https:'):
+                    return public_url
+            if tunnels:
+                return tunnels[0].get('public_url')
+    except Exception:
+        pass
+    return None
+
+# Informações de Pareamento de Conexão (Somente para chamadas locais do PC)
+@app.route('/api/connection-info')
+def connection_info():
+    ngrok_url = get_ngrok_url()
+    return jsonify({
+        "api_token": SERVER_TOKEN,
+        "ngrok_url": ngrok_url,
+        "local_url": "http://localhost:5000"
+    })
 
 if __name__ == '__main__':
     # Banner visual de inicialização

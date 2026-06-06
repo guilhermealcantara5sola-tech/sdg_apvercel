@@ -367,3 +367,9 @@ export async function deleteSavedAccount(username: string) {
   if (!res.ok) throw new Error('Failed to delete account');
   return await res.json();
 }
+
+export async function fetchConnectionInfo() {
+  const res = await fetch(`${getApiBase()}/api/connection-info`);
+  if (!res.ok) throw new Error('Failed to fetch connection info');
+  return await res.json();
+}

@@ -48,11 +48,19 @@ def main():
 
     if os.path.exists(exe_source):
         if os.path.exists(exe_dest):
-            print("[+] Removendo executável antigo...")
+            print("[+] Removendo executável antigo da raiz...")
             os.remove(exe_dest)
         
         print(f"[+] Movendo '{exe_source}' para '{exe_dest}'...")
         shutil.move(exe_source, exe_dest)
+
+        # Copia para a pasta public do React para download web
+        public_dest = os.path.join("public", "server.exe")
+        if os.path.exists(public_dest):
+            print("[+] Removendo executável antigo da pasta public...")
+            os.remove(public_dest)
+        print(f"[+] Copiando executável para '{public_dest}' para disponibilizar download...")
+        shutil.copy2(exe_dest, public_dest)
         
         # Limpeza
         print("[+] Limpando pastas temporárias de compilação...")
@@ -64,7 +72,7 @@ def main():
             os.remove("server.spec")
             
         print("\n==================================================")
-        print(" 🎉 SUCESSO! O executável 'server.exe' foi gerado.")
+        print(" [OK] SUCESSO! O executavel 'server.exe' foi gerado.")
         print(" Coloque-o junto da pasta 'GUI_ADD' e execute-o.")
         print("==================================================")
     else:
