@@ -7,8 +7,14 @@ import threading
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
+# Diretorios (Suporta script Python normal ou executável compilado pelo PyInstaller)
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Adiciona o diretório da ferramenta de disparo ao path
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'GUI_ADD', 'Ferramenta de disparo'))
+sys.path.append(os.path.join(BASE_DIR, 'GUI_ADD', 'Ferramenta de disparo'))
 try:
     from core import InstagramBot
 except ImportError:
@@ -27,9 +33,45 @@ except ImportError:
 app = Flask(__name__)
 CORS(app)  # Permite chamadas do frontend em portas diferentes (ex: Vite na 5173)
 
-# Diretorios
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EXPORT_DIR = os.path.join(BASE_DIR, 'GUI_ADD', 'instagram-thenperson-2026-06-03-qLooPzkL')
+
+# Carrega ou gera chave de pareamento
+TOKEN_FILE = os.path.join(BASE_DIR, 'token.txt')
+def get_or_create_token():
+    if os.path.exists(TOKEN_FILE):
+        try:
+            with open(TOKEN_FILE, 'r', encoding='utf-8') as f:
+                token = f.read().strip()
+                if token:
+                    return token
+        except Exception as e:
+            print(f"Erro ao ler token.txt: {e}")
+    
+    # Gera um token aleatório de 6 caracteres (letras e números)
+    import string
+    chars = string.ascii_uppercase + string.digits
+    new_token = ''.join(random.choice(chars) for _ in range(6))
+    try:
+        with open(TOKEN_FILE, 'w', encoding='utf-8') as f:
+            f.write(new_token)
+    except Exception as e:
+        print(f"Erro ao salvar token.txt: {e}")
+    return new_token
+
+SERVER_TOKEN = get_or_create_token()
+
+@app.before_request
+def verify_token():
+    if request.method == 'OPTIONS':
+        return
+    
+    # Permite healthcheck ou rotas publicas sem token
+    if request.path == '/' or request.path == '/api/health':
+        return
+        
+    auth_token = request.headers.get('X-API-Key')
+    if auth_token != SERVER_TOKEN:
+        return jsonify({"error": "Chave de pareamento inválida ou ausente (Unauthorized)"}), 401
 
 # Helper para corrigir enconding estranho do Instagram (UTF-8 interpretado como ISO-8859-1)
 def decode_instagram_str(s):
@@ -55,6 +97,56 @@ bot_logs = []
 bot_status = "idle"  # idle, running, completed, error, stopping
 bot_progress = {"current": 0, "total": 0, "current_user": ""}
 bot_thread = None
+
+ACCOUNTS_FILE = os.path.join(BASE_DIR, 'accounts.json')
+
+def load_saved_accounts():
+    if os.path.exists(ACCOUNTS_FILE):
+        try:
+            with open(ACCOUNTS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Erro ao ler contas salvas: {e}")
+    return {}
+
+def save_accounts(accounts_dict):
+    try:
+        with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(accounts_dict, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Erro ao salvar contas: {e}")
+
+# Obter lista de contas salvas
+@app.route('/api/accounts', methods=['GET'])
+def get_saved_accounts():
+    accounts_dict = load_saved_accounts()
+    # Retorna apenas os nomes de usuário por segurança
+    return jsonify([{"username": username} for username in accounts_dict.keys()])
+
+# Adicionar/Salvar conta no computador
+@app.route('/api/accounts', methods=['POST'])
+def add_saved_account():
+    data = request.json or {}
+    username = data.get('username', '').strip().replace("@", "")
+    password = data.get('password', '')
+    if not username or not password:
+        return jsonify({"error": "Preencha usuário e senha"}), 400
+        
+    accounts_dict = load_saved_accounts()
+    accounts_dict[username] = password
+    save_accounts(accounts_dict)
+    return jsonify({"status": "saved", "username": username})
+
+# Deletar conta salva do computador
+@app.route('/api/accounts/<username>', methods=['DELETE'])
+def delete_saved_account(username):
+    username = username.strip().replace("@", "")
+    accounts_dict = load_saved_accounts()
+    if username in accounts_dict:
+        del accounts_dict[username]
+        save_accounts(accounts_dict)
+        return jsonify({"status": "deleted"})
+    return jsonify({"error": "Conta não encontrada"}), 404
 
 # Servir mídias da exportação
 @app.route('/media/<path:path>')
@@ -613,12 +705,31 @@ def bot_start():
         if username and password:
             accounts = [{"username": username, "password": password}]
             
-    if not accounts or not message or not leads:
-        return jsonify({"error": "Preencha as contas de disparo, mensagem e passe pelo menos um lead."}), 400
+    # Resolve as senhas se elas não foram enviadas pela rede
+    resolved_accounts = []
+    saved_accounts = load_saved_accounts()
+    for acc in accounts:
+        acc_username = acc.get('username', '').strip().replace("@", "")
+        acc_password = acc.get('password', '')
+        
+        # Se não enviou a senha, tenta pegar do arquivo local
+        if not acc_password:
+            acc_password = saved_accounts.get(acc_username, '')
+            
+        if acc_username and acc_password:
+            resolved_accounts.append({"username": acc_username, "password": acc_password})
+            
+            # Se enviou senha nova que não estava no arquivo local, salva
+            if acc_username not in saved_accounts or saved_accounts[acc_username] != acc_password:
+                saved_accounts[acc_username] = acc_password
+                save_accounts(saved_accounts)
+
+    if not resolved_accounts or not message or not leads:
+        return jsonify({"error": "Preencha as contas de disparo (com senhas enviadas ou salvas no PC), mensagem e passe pelo menos um lead."}), 400
         
     bot_thread = threading.Thread(
         target=run_bot_thread, 
-        args=(accounts, message, leads, min_delay, max_delay, rotate_every)
+        args=(resolved_accounts, message, leads, min_delay, max_delay, rotate_every)
     )
     bot_thread.daemon = True
     bot_thread.start()
@@ -646,5 +757,22 @@ def bot_status_route():
         "logs": bot_logs
     })
 
+# Rota pública de Health Check
+@app.route('/api/health')
+def health():
+    return jsonify({"status": "ok", "requires_auth": True})
+
 if __name__ == '__main__':
+    # Banner visual de inicialização
+    print("\n" + "="*70)
+    print("        INICIANDO SERVIDOR DE AUTOMAÇÃO (THENPERSON 2026)")
+    print("="*70)
+    print(" Endereço Local: http://localhost:5000")
+    print(" Para acesso externo no Celular/Tablet, execute o ngrok:")
+    print("   ngrok http 5000")
+    print("")
+    print(f" 🔑 CHAVE DE PAREAMENTO (API TOKEN): {SERVER_TOKEN}")
+    print(" Digite esta chave no celular para parear e autorizar os disparos.")
+    print("="*70 + "\n")
+    
     app.run(host='0.0.0.0', port=5000, debug=True)

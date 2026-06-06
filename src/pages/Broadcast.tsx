@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchFollowers, fetchBotStatus, startBot, stopBot } from '../utils/api';
+import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
 import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Settings } from 'lucide-react';
 
 interface BotState {
@@ -31,9 +31,19 @@ const Broadcast: React.FC = () => {
     return localStorage.getItem('api_base_url') || 'http://localhost:5000';
   });
 
+  // Token de Pareamento da API do Robô
+  const [apiToken, setApiToken] = useState(() => {
+    return localStorage.getItem('api_token') || '';
+  });
+
   const handleApiUrlChange = (val: string) => {
     setApiUrl(val);
     localStorage.setItem('api_base_url', val);
+  };
+
+  const handleApiTokenChange = (val: string) => {
+    setApiToken(val);
+    localStorage.setItem('api_token', val);
   };
 
   // Configurações de envio
@@ -93,7 +103,26 @@ const Broadcast: React.FC = () => {
     }
   }, []);
 
-  // Salvar contas localmente sempre que alteradas
+  // Carregar contas do computador ao montar ou mudar dados da conexão
+  useEffect(() => {
+    async function loadAccountsFromServer() {
+      try {
+        const data = await fetchSavedAccounts();
+        if (Array.isArray(data)) {
+          setAccounts(data.map((acc: any) => ({ username: acc.username, password: '' })));
+        }
+      } catch (err) {
+        console.warn('Could not fetch accounts from backend, using local storage:', err);
+        try {
+          const saved = localStorage.getItem('broadcast_accounts');
+          if (saved) setAccounts(JSON.parse(saved));
+        } catch {}
+      }
+    }
+    loadAccountsFromServer();
+  }, [apiUrl, apiToken]);
+
+  // Salvar contas localmente sempre que alteradas (como backup local)
   useEffect(() => {
     localStorage.setItem('broadcast_accounts', JSON.stringify(accounts));
   }, [accounts]);
@@ -132,7 +161,7 @@ const Broadcast: React.FC = () => {
   }, [botState?.logs]);
 
   // Adicionar conta de disparo
-  const handleAddAccount = (e: React.FormEvent) => {
+  const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUsername || !newPassword) return;
     
@@ -142,13 +171,27 @@ const Broadcast: React.FC = () => {
       return;
     }
 
-    setAccounts(prev => [...prev, { username: user, password: newPassword }]);
-    setNewUsername('');
-    setNewPassword('');
+    try {
+      await addSavedAccount({ username: user, password: newPassword });
+      setAccounts(prev => [...prev, { username: user, password: '' }]);
+      setNewUsername('');
+      setNewPassword('');
+    } catch (err: any) {
+      console.warn('Failed to save account on server, saving locally as fallback:', err);
+      setAccounts(prev => [...prev, { username: user, password: newPassword }]);
+      setNewUsername('');
+      setNewPassword('');
+    }
   };
 
   // Remover conta de disparo
-  const handleRemoveAccount = (index: number) => {
+  const handleRemoveAccount = async (index: number) => {
+    const accountToRemove = accounts[index];
+    try {
+      await deleteSavedAccount(accountToRemove.username);
+    } catch (err) {
+      console.warn('Failed to delete account from server:', err);
+    }
     setAccounts(prev => prev.filter((_, idx) => idx !== index));
   };
 
@@ -299,20 +342,35 @@ const Broadcast: React.FC = () => {
                 {botStatus === 'running' ? 'Conectado • Executando' : 'Aguardando'}
               </span>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase block">Endereço da API do Robô</label>
-              <input
-                type="text"
-                placeholder="http://localhost:5000"
-                disabled={isRunning}
-                value={apiUrl}
-                onChange={(e) => handleApiUrlChange(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-mono"
-              />
-              <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-                Por padrão, usa <code className="bg-gray-100 px-1 py-0.5 rounded">http://localhost:5000</code> (computador local). Para controlar os disparos a partir do celular ou tablet de forma online, execute o <strong className="text-purple-600 font-bold">ngrok</strong> no seu computador (<code className="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>) e cole o link público gerado no campo acima.
-              </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase block">Endereço da API do Robô</label>
+                <input
+                  type="text"
+                  placeholder="http://localhost:5000"
+                  disabled={isRunning}
+                  value={apiUrl}
+                  onChange={(e) => handleApiUrlChange(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 uppercase block">Chave de Pareamento (API Token)</label>
+                <input
+                  type="text"
+                  placeholder="Digite a chave gerada no PC"
+                  disabled={isRunning}
+                  value={apiToken}
+                  onChange={(e) => handleApiTokenChange(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-mono"
+                />
+              </div>
             </div>
+            
+            <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+              Por padrão, usa <code className="bg-gray-100 px-1 py-0.5 rounded">http://localhost:5000</code>. Para controlar os disparos a partir do celular ou tablet de forma online, execute o <strong className="text-purple-600 font-bold">ngrok</strong> no computador (<code className="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>), cole o link público gerado e insira a <strong className="text-purple-600 font-bold">Chave de Pareamento</strong> que aparece no terminal do computador.
+            </p>
           </div>
           
           {/* Sessão de Contas Rotativas */}

@@ -32,4 +32,11 @@ GUI_ADD/instagram-thenperson-*/
 **/*.pyc
 **/session_*.json
 **/last_config.json
+accounts.json
+token.txt
 
+# PyInstaller Outputs
+server.exe
+*.spec
+build/
+dist/

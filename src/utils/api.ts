@@ -8,9 +8,24 @@ const getApiBase = () => {
   }
 };
 
+const getHeaders = (extraHeaders: Record<string, string> = {}) => {
+  const headers: Record<string, string> = { ...extraHeaders };
+  try {
+    const token = localStorage.getItem('api_token') || '';
+    if (token) {
+      headers['X-API-Key'] = token;
+    }
+  } catch (err) {
+    console.warn('Error reading api_token:', err);
+  }
+  return headers;
+};
+
 export async function fetchStats() {
   try {
-    const res = await fetch(`${getApiBase()}/api/stats`);
+    const res = await fetch(`${getApiBase()}/api/stats`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch stats');
     return await res.json();
   } catch (err) {
@@ -54,7 +69,9 @@ export async function fetchStats() {
 
 export async function fetchPosts() {
   try {
-    const res = await fetch(`${getApiBase()}/api/posts`);
+    const res = await fetch(`${getApiBase()}/api/posts`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch posts');
     return await res.json();
   } catch (err) {
@@ -142,7 +159,9 @@ export async function fetchChatMessagesFromSupabase(folderId: string) {
 
 export async function fetchChats() {
   try {
-    const res = await fetch(`${getApiBase()}/api/chats`);
+    const res = await fetch(`${getApiBase()}/api/chats`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch chats');
     return await res.json();
   } catch (err) {
@@ -158,7 +177,9 @@ export async function fetchChats() {
 
 export async function fetchChatMessages(folderId: string) {
   try {
-    const res = await fetch(`${getApiBase()}/api/chat/${folderId}`);
+    const res = await fetch(`${getApiBase()}/api/chat/${folderId}`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch chat messages');
     return await res.json();
   } catch (err) {
@@ -250,7 +271,9 @@ export async function fetchFollowersFromSupabase() {
 
 export async function fetchFollowers() {
   try {
-    const res = await fetch(`${getApiBase()}/api/followers`);
+    const res = await fetch(`${getApiBase()}/api/followers`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch followers');
     return await res.json();
   } catch (err) {
@@ -280,7 +303,7 @@ export async function fetchFollowers() {
 export async function startBot(config: any) {
   const res = await fetch(`${getApiBase()}/api/bot/start`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(config)
   });
   if (!res.ok) {
@@ -292,7 +315,8 @@ export async function startBot(config: any) {
 
 export async function stopBot() {
   const res = await fetch(`${getApiBase()}/api/bot/stop`, {
-    method: 'POST'
+    method: 'POST',
+    headers: getHeaders()
   });
   if (!res.ok) {
     const err = await res.json();
@@ -303,7 +327,9 @@ export async function stopBot() {
 
 export async function fetchBotStatus() {
   try {
-    const res = await fetch(`${getApiBase()}/api/bot/status`);
+    const res = await fetch(`${getApiBase()}/api/bot/status`, {
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Failed to fetch bot status');
     return await res.json();
   } catch (err) {
@@ -313,4 +339,31 @@ export async function fetchBotStatus() {
       logs: ['[SISTEMA] Backend offline. Conecte o servidor Python local para usar o robô de disparo.']
     };
   }
+}
+
+export async function fetchSavedAccounts() {
+  const res = await fetch(`${getApiBase()}/api/accounts`, {
+    headers: getHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to fetch saved accounts');
+  return await res.json();
+}
+
+export async function addSavedAccount(account: any) {
+  const res = await fetch(`${getApiBase()}/api/accounts`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(account)
+  });
+  if (!res.ok) throw new Error('Failed to save account');
+  return await res.json();
+}
+
+export async function deleteSavedAccount(username: string) {
+  const res = await fetch(`${getApiBase()}/api/accounts/${username}`, {
+    method: 'DELETE',
+    headers: getHeaders()
+  });
+  if (!res.ok) throw new Error('Failed to delete account');
+  return await res.json();
 }
