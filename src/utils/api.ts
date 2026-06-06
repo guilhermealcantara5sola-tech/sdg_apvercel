@@ -216,7 +216,7 @@ function inferCity(username: string): string {
 }
 
 export async function fetchFollowersFromSupabase() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=username.asc`, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=username.asc&limit=10000`, {
     headers: {
       "apikey": SUPABASE_KEY,
       "Authorization": `Bearer ${SUPABASE_KEY}`
