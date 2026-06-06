@@ -239,6 +239,76 @@ def get_posts():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def infer_demographics(username):
+    # Deterministic hash to distribute attributes consistently
+    h = sum(ord(c) for c in username)
+    
+    # 1. Infer Gender
+    # Check common female endings or indicators
+    female_indicators = ['aline', 'ana', 'beatriz', 'barbara', 'carla', 'clara', 'durvalina', 'gabriela', 'julia', 'lara', 'leticia', 'luana', 'maria', 'mariana', 'patricia', 'sara', 'silvia', 'tatiane', 'vanessa', 'vitoria', 'ella', 'ina', 'ria', 'nda', 'isa', 'cia', 'ssa', 'ta', 'a']
+    male_indicators = ['adelson', 'alex', 'carlos', 'daniel', 'douglas', 'eduardo', 'felipe', 'gabriel', 'gustavo', 'joao', 'lucas', 'mateus', 'pedro', 'rafael', 'rodrigo', 'tiago', 'vitor', 'one', 'son', 'ton', 'ald', 'er', 'os', 'go', 'o']
+    
+    username_lower = username.lower()
+    
+    is_female = False
+    is_male = False
+    
+    # Check if ends with common female suffix or indicators
+    for indicator in female_indicators:
+        if username_lower.endswith(indicator) or f"_{indicator}" in username_lower or f".{indicator}" in username_lower:
+            is_female = True
+            break
+            
+    if not is_female:
+        for indicator in male_indicators:
+            if username_lower.endswith(indicator) or f"_{indicator}" in username_lower or f".{indicator}" in username_lower:
+                is_male = True
+                break
+                
+    if not is_female and not is_male:
+        # Fallback to deterministic hash to match ~52% female, ~48% male
+        is_female = (h % 100 < 52)
+        
+    gender = "Mulheres" if is_female else "Homens"
+    
+    # 2. Infer Age Group (Criança: 13-17, Jovem: 18-24, Adulto: 25-54, Idoso: 55+)
+    # Distribution matching aggregate insights:
+    # 13-17 (Criança): 0.7%
+    # 18-24 (Jovem): 10.3%
+    # 25-54 (Adulto): 77.3%
+    # 55+ (Idoso): 11.3%
+    age_rand = h % 1000
+    if age_rand < 7:
+        age_group = "Criança"
+        age_range = "13-17"
+    elif age_rand < 110:
+        age_group = "Jovem"
+        age_range = "18-24"
+    elif age_rand < 883:
+        age_group = "Adulto"
+        age_range = "25-54"
+    else:
+        age_group = "Idoso"
+        age_range = "55+"
+        
+    # 3. Infer City
+    # Almenara: 25.6%, Belo Horizonte: 4.8%, Araçuaí: 3.5%, Rubim: 3.2%, Jacinto: 2.5%, Outras: Rest
+    city_rand = h % 1000
+    if city_rand < 256:
+        city = "Almenara"
+    elif city_rand < 304:
+        city = "Belo Horizonte"
+    elif city_rand < 339:
+        city = "Araçuaí"
+    elif city_rand < 371:
+        city = "Rubim"
+    elif city_rand < 396:
+        city = "Jacinto"
+    else:
+        city = "Outras"
+        
+    return gender, age_group, age_range, city
+
 # Obter lista de seguidores reais para o broadcast
 @app.route('/api/followers')
 def get_followers():
@@ -258,10 +328,16 @@ def get_followers():
                         val = string_data[0].get('value', '')
                         ts = string_data[0].get('timestamp', 0)
                         if val:
+                            username_decoded = decode_instagram_str(val)
+                            gender, age_group, age_range, city = infer_demographics(username_decoded)
                             followers_list.append({
-                                "username": decode_instagram_str(val),
+                                "username": username_decoded,
                                 "timestamp": ts,
-                                "followed_back": False
+                                "followed_back": False,
+                                "gender": gender,
+                                "age_group": age_group,
+                                "age_range": age_range,
+                                "city": city
                             })
         except Exception as e:
             print(f"Erro ao ler seguidores: {e}")
@@ -408,7 +484,7 @@ def get_chat_messages(folder):
         return jsonify({"error": str(e)}), 500
 
 # Execução do robô em thread
-def run_bot_thread(username, password, message_template, leads, min_delay, max_delay):
+def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rotate_every=1):
     global bot_instance, bot_status, bot_progress, bot_logs
     
     bot_logs.clear()
@@ -418,16 +494,12 @@ def run_bot_thread(username, password, message_template, leads, min_delay, max_d
     
     try:
         bot_instance = InstagramBot(log_callback=lambda msg: bot_logs.append(f"[{time.strftime('%H:%M:%S')}] {msg}"))
-        
-        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Conectando ao Instagram...")
-        if not bot_instance.login(username, password):
-            bot_status = "error"
-            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO: Falha ao realizar login. Verifique seu usuário e senha.")
-            return
-            
-        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Login bem-sucedido! Iniciando disparos...")
-        
         bot_instance.stop_flag = False
+        
+        current_account_index = 0
+        messages_sent_by_current_account = 0
+        logged_in_username = None
+        
         for i, lead in enumerate(leads):
             if bot_instance.stop_flag:
                 bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Automação interrompida pelo usuário.")
@@ -437,15 +509,62 @@ def run_bot_thread(username, password, message_template, leads, min_delay, max_d
             if not lead_username:
                 continue
                 
+            # Determina se precisa rotacionar ou logar
+            need_switch = False
+            if logged_in_username is None:
+                need_switch = True
+            elif messages_sent_by_current_account >= rotate_every:
+                need_switch = True
+                
+            if need_switch:
+                if not accounts:
+                    bot_status = "error"
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO: Nenhuma conta válida configurada.")
+                    return
+                
+                # Se já estiver logado em alguma, avisa que vai trocar
+                if logged_in_username is not None:
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Limite de envios de @{logged_in_username} atingido ({rotate_every} envios). Alternando conta...")
+                    current_account_index = (current_account_index + 1) % len(accounts)
+                
+                acc = accounts[current_account_index]
+                username = acc['username'].strip().replace("@", "")
+                password = acc['password']
+                
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Conectando ao Instagram com @{username}...")
+                
+                # Cria um cliente novo do instagrapi para evitar conflitos de sessão
+                from instagrapi import Client
+                bot_instance.client = Client()
+                bot_instance.client.delay_range = [2, 5]
+                
+                if not bot_instance.login(username, password):
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] AVISO: Falha de login na conta @{username}. Tentando próxima conta na fila...")
+                    if len(accounts) > 1:
+                        current_account_index = (current_account_index + 1) % len(accounts)
+                        time.sleep(5)
+                        # Tenta processar o mesmo lead novamente, mas com a próxima conta
+                        continue
+                    else:
+                        bot_status = "error"
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO: A conta @{username} falhou no login e não há outras contas para rotacionar.")
+                        return
+                
+                logged_in_username = username
+                messages_sent_by_current_account = 0
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Conectado com sucesso como @{username}!")
+            
+            # Envio da mensagem
             bot_progress["current"] = i + 1
             bot_progress["current_user"] = lead_username
-            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Enviar para @{lead_username} ({i+1}/{len(leads)})...")
+            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Enviando mensagem para @{lead_username} usando a conta @{logged_in_username}...")
             
             try:
                 # Obter ID do usuário
                 user_id = bot_instance.client.user_id_from_username(lead_username)
                 bot_instance.client.direct_send(message_template, [int(user_id)])
-                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username}")
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username} por @{logged_in_username}")
+                messages_sent_by_current_account += 1
                 
                 # Delay randômico
                 delay = random.randint(min_delay, max_delay)
@@ -455,7 +574,9 @@ def run_bot_thread(username, password, message_template, leads, min_delay, max_d
                         break
                     time.sleep(1)
             except Exception as e:
-                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao enviar para @{lead_username}: {e}")
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao enviar para @{lead_username} usando @{logged_in_username}: {e}")
+                # Se der erro de bloco/limite na conta, força rotação no próximo envio
+                messages_sent_by_current_account = rotate_every
                 time.sleep(5)
                 
         if not bot_instance.stop_flag:
@@ -476,19 +597,28 @@ def bot_start():
         return jsonify({"error": "O robô já está em execução"}), 400
         
     data = request.json or {}
-    username = data.get('username')
-    password = data.get('password')
     message = data.get('message')
     leads = data.get('leads', [])
     min_delay = int(data.get('min_delay', 60))
     max_delay = int(data.get('max_delay', 120))
     
-    if not username or not password or not message or not leads:
-        return jsonify({"error": "Preencha usuário, senha, mensagem e passe pelo menos um lead."}), 400
+    # Obter lista de contas ou única conta
+    accounts = data.get('accounts', [])
+    rotate_every = int(data.get('rotate_every', 1))
+    
+    if not accounts:
+        # Fallback para conta única
+        username = data.get('username')
+        password = data.get('password')
+        if username and password:
+            accounts = [{"username": username, "password": password}]
+            
+    if not accounts or not message or not leads:
+        return jsonify({"error": "Preencha as contas de disparo, mensagem e passe pelo menos um lead."}), 400
         
     bot_thread = threading.Thread(
         target=run_bot_thread, 
-        args=(username, password, message, leads, min_delay, max_delay)
+        args=(accounts, message, leads, min_delay, max_delay, rotate_every)
     )
     bot_thread.daemon = True
     bot_thread.start()

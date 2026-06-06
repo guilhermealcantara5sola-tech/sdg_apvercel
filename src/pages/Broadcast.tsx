@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot } from '../utils/api';
-import { Send, Play, Square, Users, Settings, AlertCircle, Terminal, Check } from 'lucide-react';
+import { Send, Play, Square, Users, Settings, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Info } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -13,9 +13,20 @@ interface BotState {
 }
 
 const Broadcast: React.FC = () => {
-  // Credenciais e Configs
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  // Contas do Instagram para disparo
+  const [accounts, setAccounts] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('broadcast_accounts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [rotateEvery, setRotateEvery] = useState(1);
+
+  // Configurações de envio
   const [message, setMessage] = useState('');
   const [minDelay, setMinDelay] = useState(60);
   const [maxDelay, setMaxDelay] = useState(120);
@@ -33,6 +44,13 @@ const Broadcast: React.FC = () => {
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingLeads, setLoadingLeads] = useState(true);
+
+  // Filtros
+  const [showFilters, setShowFilters] = useState(false);
+  const [genderFilter, setGenderFilter] = useState('Todos');
+  const [ageFilter, setAgeFilter] = useState('Todos');
+  const [cityFilter, setCityFilter] = useState('Todas');
+  const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
 
   const logEndRef = useRef<HTMLDivElement>(null);
 
@@ -55,15 +73,20 @@ const Broadcast: React.FC = () => {
       const savedConfig = localStorage.getItem('broadcast_config');
       if (savedConfig) {
         const config = JSON.parse(savedConfig);
-        setUsername(config.username || '');
         setMessage(config.message || '');
         setMinDelay(config.minDelay || 60);
         setMaxDelay(config.maxDelay || 120);
+        setRotateEvery(config.rotateEvery || 1);
       }
     } catch (e) {
       console.warn('Could not read config from localStorage:', e);
     }
   }, []);
+
+  // Salvar contas localmente sempre que alteradas
+  useEffect(() => {
+    localStorage.setItem('broadcast_accounts', JSON.stringify(accounts));
+  }, [accounts]);
 
   // Poll do status do bot quando rodando
   useEffect(() => {
@@ -98,10 +121,43 @@ const Broadcast: React.FC = () => {
     }
   }, [botState?.logs]);
 
+  // Adicionar conta de disparo
+  const handleAddAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUsername || !newPassword) return;
+    
+    const user = newUsername.trim().replace('@', '');
+    if (accounts.some(acc => acc.username.toLowerCase() === user.toLowerCase())) {
+      alert('Esta conta já está adicionada!');
+      return;
+    }
+
+    setAccounts(prev => [...prev, { username: user, password: newPassword }]);
+    setNewUsername('');
+    setNewPassword('');
+  };
+
+  // Remover conta de disparo
+  const handleRemoveAccount = (index: number) => {
+    setAccounts(prev => prev.filter((_, idx) => idx !== index));
+  };
+
   // Filtrar lista de seguidores
-  const filteredFollowers = followers.filter(f => 
-    f.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredFollowers = followers.filter(f => {
+    const matchesSearch = f.username.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesGender = genderFilter === 'Todos' || f.gender === genderFilter;
+    const matchesAge = ageFilter === 'Todos' || f.age_group === ageFilter;
+    const matchesCity = cityFilter === 'Todas' || f.city === cityFilter;
+    
+    let matchesFollowedBack = true;
+    if (followedBackFilter === 'Sim') {
+      matchesFollowedBack = f.followed_back === true;
+    } else if (followedBackFilter === 'Não') {
+      matchesFollowedBack = f.followed_back === false;
+    }
+    
+    return matchesSearch && matchesGender && matchesAge && matchesCity && matchesFollowedBack;
+  });
 
   const toggleLeadSelection = (user: string) => {
     setSelectedLeads(prev => 
@@ -124,23 +180,39 @@ const Broadcast: React.FC = () => {
   };
 
   const handleStart = async () => {
+    let activeAccounts = [...accounts];
+    
+    // Se o usuário preencheu os inputs mas esqueceu de clicar em adicionar, adiciona automaticamente
+    if (activeAccounts.length === 0 && newUsername && newPassword) {
+      const acc = { username: newUsername.trim().replace('@', ''), password: newPassword };
+      activeAccounts = [acc];
+      setAccounts([acc]);
+      setNewUsername('');
+      setNewPassword('');
+    }
+
     // Coleta leads manuais
     const parsedManual = manualLeads.split(',').map(l => l.trim()).filter(l => l);
     // Junta com seguidores selecionados
     const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
 
-    if (!username || !password || !message || allLeads.length === 0) {
-      alert('Por favor, preencha todos os campos e selecione ao menos um lead!');
+    if (activeAccounts.length === 0) {
+      alert('Por favor, adicione pelo menos uma conta do Instagram para realizar os disparos!');
+      return;
+    }
+
+    if (!message || allLeads.length === 0) {
+      alert('Por favor, preencha o texto da mensagem e selecione ao menos um destinatário!');
       return;
     }
 
     // Salvar configuração atual localmente com tratamento de erro
     try {
       localStorage.setItem('broadcast_config', JSON.stringify({
-        username,
         message,
         minDelay,
-        maxDelay
+        maxDelay,
+        rotateEvery
       }));
     } catch (e) {
       console.warn('Could not save config to localStorage:', e);
@@ -150,17 +222,19 @@ const Broadcast: React.FC = () => {
       setBotState(prev => ({ 
         ...prev, 
         status: 'running', 
-        logs: prev?.logs ? [...prev.logs, 'Iniciando disparo...'] : ['Iniciando disparo...'] 
+        logs: prev?.logs ? [...prev.logs, 'Iniciando disparador com rotatividade...'] : ['Iniciando disparador com rotatividade...'] 
       }));
+      
       await startBot({
-        username,
-        password,
+        accounts: activeAccounts,
+        rotate_every: rotateEvery,
         message,
         leads: allLeads,
         min_delay: minDelay,
         max_delay: maxDelay
       });
-      // Inicia o polling setando status como running
+      
+      // Inicia o polling
       setBotState(prev => ({ ...prev, status: 'running' }));
     } catch (err: any) {
       alert(`Erro ao iniciar robô: ${err.message}`);
@@ -186,12 +260,14 @@ const Broadcast: React.FC = () => {
     ? Math.round((botProgress.current / botProgress.total) * 100) 
     : 0;
 
+  // Lista de cidades para o filtro
+  const citiesList = ['Todas', 'Almenara', 'Belo Horizonte', 'Araçuaí', 'Rubim', 'Jacinto', 'Outras'];
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold text-gray-800">Disparo de Mensagens</h2>
-        <p className="text-gray-500">Envie mensagens automatizadas em massa para sua base de leads com segurança.</p>
+        <p className="text-gray-500">Envie mensagens automatizadas em massa com rotatividade de contas e filtros avançados.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -199,34 +275,99 @@ const Broadcast: React.FC = () => {
         {/* Painel de Configurações */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Sessão de Login */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-purple-600 font-bold mb-2">
-              <Settings size={20} />
-              <h3>Acesso ao Instagram</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Usuário</label>
-                <input
-                  type="text"
-                  placeholder="@seu_usuario"
-                  disabled={isRunning}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
-                />
+          {/* Sessão de Contas Rotativas */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+              <div className="flex items-center gap-2 text-purple-600 font-bold">
+                <RotateCw size={20} className={isRunning ? 'animate-spin' : ''} />
+                <h3>Contas de Disparo (Rotatividade)</h3>
               </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Senha</label>
+              <span className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded-full font-bold">
+                {accounts.length} conta(s) cadastradas
+              </span>
+            </div>
+
+            {/* Form de Adição */}
+            {!isRunning && (
+              <form onSubmit={handleAddAccount} className="bg-gray-50/50 p-4 rounded-xl space-y-3 border border-gray-100">
+                <p className="text-xs font-bold text-gray-600">Adicionar Nova Conta do Instagram</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Usuário (@conta)"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      placeholder="Senha"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                    />
+                    <button
+                      type="submit"
+                      className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg text-sm flex items-center justify-center transition-colors shrink-0"
+                      title="Adicionar Conta"
+                    >
+                      <Plus size={20} />
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {/* Lista de Contas Cadastradas */}
+            <div className="space-y-2">
+              {accounts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {accounts.map((acc, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        <span className="text-sm font-semibold text-gray-700">@{acc.username}</span>
+                      </div>
+                      {!isRunning && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAccount(index)}
+                          className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remover Conta"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
+                  Nenhuma conta cadastrada. Preencha os dados no formulário acima.
+                </div>
+              )}
+            </div>
+
+            {/* Controle de Rotatividade */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-purple-50/40 p-4 rounded-xl border border-purple-100/30">
+              <div className="space-y-0.5">
+                <span className="text-xs font-bold text-purple-700 block">Frequência de Rotação</span>
+                <span className="text-xs text-gray-500">Troca a conta de disparo automaticamente após enviar um número de DMs.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-700">Mudar conta a cada</label>
                 <input
-                  type="password"
-                  placeholder="Sua senha do Instagram"
+                  type="number"
+                  min="1"
                   disabled={isRunning}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                  value={rotateEvery}
+                  onChange={(e) => setRotateEvery(Math.max(1, Number(e.target.value)))}
+                  className="w-16 px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
                 />
+                <label className="text-xs text-gray-700">envio(s)</label>
               </div>
             </div>
           </div>
@@ -241,7 +382,7 @@ const Broadcast: React.FC = () => {
               <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Texto da Mensagem</label>
               <textarea
                 rows={4}
-                placeholder="Olá @username! Vi que você acompanha nossa campanha do Thenperson... (Use com moderação)"
+                placeholder="Olá @username! Vi que você acompanha nosso perfil... (Use com moderação)"
                 disabled={isRunning}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -273,8 +414,8 @@ const Broadcast: React.FC = () => {
             <div className="bg-amber-50 p-4 rounded-xl flex gap-3 text-amber-800 text-xs mt-4">
               <AlertCircle size={20} className="flex-shrink-0" />
               <div>
-                <p className="font-bold">Aviso sobre Delays:</p>
-                <p className="mt-0.5 leading-relaxed">O Instagram impõe limites estritos de DMs por dia. Delays longos (mínimo de 60-120 segundos) ajudam a evitar bloqueios temporários ou suspensão da conta.</p>
+                <p className="font-bold">Dica de Segurança:</p>
+                <p className="mt-0.5 leading-relaxed">Rotacionar entre várias contas ajuda muito a diluir o volume de disparos, porém manter delays seguros (como 60 a 120s) ainda é essencial para a saúde das contas.</p>
               </div>
             </div>
           </div>
@@ -300,6 +441,9 @@ const Broadcast: React.FC = () => {
               {botLogs.map((log: string, idx: number) => (
                 <div key={idx} className="leading-relaxed whitespace-pre-wrap">{log}</div>
               ))}
+              {botLogs.length === 0 && (
+                <div className="text-gray-500 italic">O console aguarda o início do processo...</div>
+              )}
               <div ref={logEndRef} />
             </div>
 
@@ -346,11 +490,97 @@ const Broadcast: React.FC = () => {
 
 
         {/* Seleção de Leads (Direita) */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-[600px]">
-          <div className="flex items-center gap-2 text-purple-600 font-bold mb-4">
-            <Users size={20} />
-            <h3>Lista de Destinatários</h3>
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-[760px]">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-purple-600 font-bold">
+              <Users size={20} />
+              <h3>Lista de Destinatários</h3>
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              disabled={isRunning}
+              className={`p-2 rounded-lg border transition-all ${
+                showFilters || genderFilter !== 'Todos' || ageFilter !== 'Todos' || cityFilter !== 'Todas' || followedBackFilter !== 'Todos'
+                  ? 'bg-purple-50 border-purple-200 text-purple-600'
+                  : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+              }`}
+              title="Filtros Demográficos"
+            >
+              <Filter size={18} />
+            </button>
           </div>
+
+          {/* Painel de Filtros Demográficos */}
+          {showFilters && (
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-3 space-y-3 animate-fadeIn">
+              <div className="flex justify-between items-center border-b border-gray-200 pb-1">
+                <span className="text-xs font-bold text-gray-600">Filtros Demográficos</span>
+                <button 
+                  onClick={() => {
+                    setGenderFilter('Todos');
+                    setAgeFilter('Todos');
+                    setCityFilter('Todas');
+                    setFollowedBackFilter('Todos');
+                  }}
+                  className="text-[10px] text-purple-600 font-bold hover:underline"
+                >
+                  Limpar Filtros
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Gênero</label>
+                  <select
+                    value={genderFilter}
+                    onChange={(e) => setGenderFilter(e.target.value)}
+                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
+                  >
+                    <option value="Todos">Todos</option>
+                    <option value="Mulheres">Mulheres</option>
+                    <option value="Homens">Homens</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Idade</label>
+                  <select
+                    value={ageFilter}
+                    onChange={(e) => setAgeFilter(e.target.value)}
+                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
+                  >
+                    <option value="Todos">Todos</option>
+                    <option value="Criança">Criança (13-17)</option>
+                    <option value="Jovem">Jovem (18-24)</option>
+                    <option value="Adulto">Adulto (25-54)</option>
+                    <option value="Idoso">Idoso (55+)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Cidade</label>
+                  <select
+                    value={cityFilter}
+                    onChange={(e) => setCityFilter(e.target.value)}
+                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
+                  >
+                    {citiesList.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Segue de Volta?</label>
+                  <select
+                    value={followedBackFilter}
+                    onChange={(e) => setFollowedBackFilter(e.target.value)}
+                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
+                  >
+                    <option value="Todos">Todos</option>
+                    <option value="Sim">Sim</option>
+                    <option value="Não">Não</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Busca */}
           <input
@@ -364,8 +594,8 @@ const Broadcast: React.FC = () => {
 
           {/* Selecionar Todos */}
           <div className="flex justify-between items-center mb-3">
-            <span className="text-xs font-bold text-gray-400 uppercase">
-              {selectedLeads.length} selecionados
+            <span className="text-[11px] font-bold text-gray-400 uppercase">
+              {filteredFollowers.length} filtrados • {selectedLeads.length} selecionados
             </span>
             <button
               onClick={selectAllFiltered}
@@ -396,10 +626,15 @@ const Broadcast: React.FC = () => {
                         : 'bg-white border-gray-100 text-gray-700 hover:bg-gray-50'
                     } disabled:opacity-75 disabled:cursor-not-allowed`}
                   >
-                    <span>@{follower.username}</span>
+                    <div className="flex flex-col space-y-0.5">
+                      <span className="font-semibold">@{follower.username}</span>
+                      <span className="text-[10px] text-gray-400">
+                        {follower.gender === 'Mulheres' ? 'Feminino' : 'Masculino'} • {follower.age_group} • {follower.city}
+                      </span>
+                    </div>
                     <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
                       isSel ? 'bg-purple-600 border-purple-600 text-white' : 'border-gray-300 bg-white'
-                    }`}>
+                    } shrink-0`}>
                       {isSel && <Check size={14} />}
                     </div>
                   </button>
@@ -407,7 +642,7 @@ const Broadcast: React.FC = () => {
               })
             ) : (
               <div className="flex items-center justify-center h-full text-xs text-gray-400">
-                Nenhum seguidor encontrado
+                Nenhum seguidor corresponde aos critérios
               </div>
             )}
           </div>

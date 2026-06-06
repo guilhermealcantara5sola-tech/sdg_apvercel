@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
+const DEFAULT_USERNAME = 'admin';
+const DEFAULT_PASSWORD = 'admin';
+
 interface LoginProps {
   onLogin: () => void;
 }
@@ -19,7 +22,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
     // Simulate a brief loading delay to feel more professional
     setTimeout(() => {
-      if (username.trim() === 'admin' && password === 'admin') {
+      if (username.trim() === DEFAULT_USERNAME && password === DEFAULT_PASSWORD) {
         localStorage.setItem('isAuthenticated', 'true');
         onLogin();
       } else {
