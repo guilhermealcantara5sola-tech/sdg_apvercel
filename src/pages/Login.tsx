@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
-const DEFAULT_USERNAME = 'admin';
-const DEFAULT_PASSWORD = 'admin';
+const DEFAULT_USERNAME = 'userthenperson';
+const DEFAULT_PASSWORD = 'thenperson20261234';
 
 interface LoginProps {
   onLogin: () => void;
@@ -115,7 +115,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </form>
 
         <div className="mt-8 text-center text-xs text-slate-500 border-t border-white/5 pt-4">
-          Usuário padrão: <code className="bg-white/5 px-1.5 py-0.5 rounded text-purple-400 font-mono">admin</code> | Senha: <code className="bg-white/5 px-1.5 py-0.5 rounded text-purple-400 font-mono">admin</code>
+          Usuário: <code className="bg-white/5 px-1.5 py-0.5 rounded text-purple-400 font-mono">userthenperson</code> | Senha: <code className="bg-white/5 px-1.5 py-0.5 rounded text-purple-400 font-mono">thenperson20261234</code>
         </div>
       </div>
     </div>
