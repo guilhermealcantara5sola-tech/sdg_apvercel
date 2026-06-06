@@ -812,7 +812,7 @@ if __name__ == '__main__':
     target_url = ngrok_url if ngrok_url else "http://localhost:5000"
     
     # Constrói o link de pareamento automático para o celular
-    vercel_app_url = os.environ.get("VERCEL_APP_URL", "https://sdg-apvercel.vercel.app")
+    vercel_app_url = os.environ.get("VERCEL_APP_URL", "https://sdgtec.com.br")
     pairing_link = f"{vercel_app_url}/broadcast?api_url={target_url}&api_token={SERVER_TOKEN}"
     
     print("📱 LINK DE PAREAMENTO AUTOMATICO:")
