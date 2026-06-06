@@ -805,7 +805,29 @@ if __name__ == '__main__':
     print("   ngrok http 5000")
     print("")
     print(f" 🔑 CHAVE DE PAREAMENTO (API TOKEN): {SERVER_TOKEN}")
-    print(" Digite esta chave no celular para parear e autorizar os disparos.")
     print("="*70 + "\n")
     
+    # Tenta obter a URL do ngrok para pareamento
+    ngrok_url = get_ngrok_url()
+    target_url = ngrok_url if ngrok_url else "http://localhost:5000"
+    
+    # Constrói o link de pareamento automático para o celular
+    vercel_app_url = os.environ.get("VERCEL_APP_URL", "https://sdg-apvercel.vercel.app")
+    pairing_link = f"{vercel_app_url}/broadcast?api_url={target_url}&api_token={SERVER_TOKEN}"
+    
+    print("📱 LINK DE PAREAMENTO AUTOMATICO:")
+    print(pairing_link)
+    
+    try:
+        import qrcode
+        qr = qrcode.QRCode(version=1, box_size=1, border=1)
+        qr.add_data(pairing_link)
+        qr.make(fit=True)
+        print("\n[+] ESCANEIE O QR CODE ABAIXO COM A CAMERA DO CELULAR PARA PAREAR INSTANTANEAMENTE:")
+        qr.print_ascii()
+        print("")
+    except Exception as e:
+        print(f"\n[-] Nao foi possivel exibir o QR Code no terminal: {e}")
+        print("    Abra a camera do celular e acesse o link de pareamento acima ou insira manualmente no site.")
+        
     app.run(host='0.0.0.0', port=5000, debug=True)

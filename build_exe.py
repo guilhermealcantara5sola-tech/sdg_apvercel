@@ -22,7 +22,7 @@ def main():
         "atualizar o pip"
     )
     
-    dependencies = ["pyinstaller", "flask", "flask-cors", "instagrapi"]
+    dependencies = ["pyinstaller", "flask", "flask-cors", "instagrapi", "qrcode"]
     print(f"[+] Verificando/Instalando dependências: {', '.join(dependencies)}")
     run_command(
         f"{sys.executable} -m pip install {' '.join(dependencies)}", 
