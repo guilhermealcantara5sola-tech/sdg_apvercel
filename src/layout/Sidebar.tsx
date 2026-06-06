@@ -12,6 +12,11 @@ const Sidebar: React.FC = () => {
   ];
 
 
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    window.location.reload();
+  };
+
   return (
     <aside className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col sticky top-0">
       <div className="p-6 border-b border-gray-100">
@@ -44,7 +49,10 @@ const Sidebar: React.FC = () => {
           <Settings size={20} />
           Configurações
         </button>
-        <button className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 w-full transition-colors">
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg text-red-500 hover:bg-red-50 w-full transition-colors"
+        >
           <LogOut size={20} />
           Sair
         </button>
