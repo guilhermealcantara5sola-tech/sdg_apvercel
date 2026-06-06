@@ -9,7 +9,6 @@ const Inbox: React.FC = () => {
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [messageText, setMessageText] = useState('');
 
   useEffect(() => {
     async function loadChats() {

@@ -30,16 +30,6 @@ const Analytics: React.FC = () => {
       </div>
     );
   }
-
-  // Generate historical data for charts if not present (simulate using growth rate)
-  const mockTimeline = [
-    { date: '01/06', followers: 1080, reach: 45000, engagement: 4.2 },
-    { date: '02/06', followers: 1100, reach: 52000, engagement: 4.5 },
-    { date: '03/06', followers: 1120, reach: 48000, engagement: 4.3 },
-    { date: '04/06', followers: 1135, reach: 58000, engagement: 4.8 },
-    { date: '05/06', followers: 1152, reach: 62000, engagement: 5.1 },
-  ];
-
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-end">

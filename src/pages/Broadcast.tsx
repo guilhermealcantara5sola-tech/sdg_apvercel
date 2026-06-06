@@ -2,6 +2,16 @@ import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot } from '../utils/api';
 import { Send, Play, Square, Users, Settings, AlertCircle, Terminal, Check } from 'lucide-react';
 
+interface BotState {
+  status: string;
+  progress: {
+    current: number;
+    total: number;
+    current_user: string;
+  };
+  logs: string[];
+}
+
 const Broadcast: React.FC = () => {
   // Credenciais e Configs
   const [username, setUsername] = useState('');
@@ -12,7 +22,7 @@ const Broadcast: React.FC = () => {
   const [manualLeads, setManualLeads] = useState('');
 
   // Status e Logs
-  const [botState, setBotState] = useState<any>({
+  const [botState, setBotState] = useState<BotState>({
     status: 'idle',
     progress: { current: 0, total: 0, current_user: '' },
     logs: []
