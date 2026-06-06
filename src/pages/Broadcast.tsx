@@ -62,7 +62,7 @@ const Broadcast: React.FC = () => {
   const [cityFilter, setCityFilter] = useState('Todas');
   const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
 
-  const logEndRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
 
   // Carregar seguidores reais
   useEffect(() => {
@@ -169,10 +169,10 @@ const Broadcast: React.FC = () => {
     };
   }, [apiUrl, apiToken]);
 
-  // Scroll automático do log de terminal
+  // Scroll automático do log de terminal (Apenas o container interno, sem mover a página toda)
   useEffect(() => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [botState?.logs]);
 
@@ -529,14 +529,13 @@ const Broadcast: React.FC = () => {
             </div>
             
             {/* Terminal View */}
-            <div className="h-64 overflow-y-auto font-mono text-xs text-green-300 space-y-1.5 pr-2">
+            <div ref={terminalRef} className="h-64 overflow-y-auto font-mono text-xs text-green-300 space-y-1.5 pr-2">
               {botLogs.map((log: string, idx: number) => (
                 <div key={idx} className="leading-relaxed whitespace-pre-wrap">{log}</div>
               ))}
               {botLogs.length === 0 && (
                 <div className="text-gray-500 italic">O console aguarda o início do processo...</div>
               )}
-              <div ref={logEndRef} />
             </div>
 
             {/* Ações e Progresso */}

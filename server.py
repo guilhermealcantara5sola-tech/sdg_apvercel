@@ -785,14 +785,26 @@ def get_ngrok_url():
         pass
     return None
 
+def get_local_ip():
+    import socket
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
 # Informações de Pareamento de Conexão (Somente para chamadas locais do PC)
 @app.route('/api/connection-info')
 def connection_info():
     ngrok_url = get_ngrok_url()
+    local_ip = get_local_ip()
     return jsonify({
         "api_token": SERVER_TOKEN,
         "ngrok_url": ngrok_url,
-        "local_url": "http://localhost:5000"
+        "local_url": f"http://{local_ip}:5000"
     })
 
 if __name__ == '__main__':
@@ -809,11 +821,19 @@ if __name__ == '__main__':
     
     # Tenta obter a URL do ngrok para pareamento
     ngrok_url = get_ngrok_url()
-    target_url = ngrok_url if ngrok_url else "http://localhost:5000"
+    local_ip = get_local_ip()
+    target_url = ngrok_url if ngrok_url else f"http://{local_ip}:5000"
     
     # Constrói o link de pareamento automático para o celular
     vercel_app_url = os.environ.get("VERCEL_APP_URL", "https://sdgtec.com.br")
     pairing_link = f"{vercel_app_url}/broadcast?api_url={target_url}&api_token={SERVER_TOKEN}"
+    
+    if not ngrok_url:
+        print(" ⚠️  Aviso: Ngrok nao detectado. Usando IP da rede local Wi-Fi.")
+        print(f"     Certifique-se de que o Celular e o PC estao na MESMA rede Wi-Fi.")
+    else:
+        print(" 🌐 SUCESSO: Ngrok detectado! Sincronizacao online ativa.")
+    print("")
     
     print("📱 LINK DE PAREAMENTO AUTOMATICO:")
     print(pairing_link)
