@@ -65,14 +65,13 @@ def verify_token():
     if request.method == 'OPTIONS':
         return
     
-    # Permite healthcheck ou rotas publicas sem token
+    # Se a requisição vier do próprio computador (local), permite acesso livre sem token
+    if request.remote_addr in ('127.0.0.1', '::1', 'localhost'):
+        return
+    
+    # Permite healthcheck ou rotas públicas sem token para dispositivos remotos
     if request.path in ('/', '/api/health'):
         return
-        
-    # Permite carregar info de pareamento se a requisição vier do próprio PC (local)
-    if request.path == '/api/connection-info':
-        if request.remote_addr in ('127.0.0.1', '::1', 'localhost'):
-            return
         
     auth_token = request.headers.get('X-API-Key')
     if auth_token != SERVER_TOKEN:
