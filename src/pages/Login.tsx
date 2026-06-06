@@ -23,7 +23,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     // Simulate a brief loading delay to feel more professional
     setTimeout(() => {
       if (username.trim() === DEFAULT_USERNAME && password === DEFAULT_PASSWORD) {
-        localStorage.setItem('isAuthenticated', 'true');
+        sessionStorage.setItem('isAuthenticated', 'true');
         onLogin();
       } else {
         setError('Usuário ou senha incorretos.');
