@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layout/MainLayout';
 import Dashboard from './pages/Dashboard';
 import Posts from './pages/Posts';
@@ -14,20 +14,44 @@ function App() {
     localStorage.getItem('isAuthenticated') === 'true'
   );
 
-  if (!isAuthenticated) {
-    return <Login onLogin={() => setIsAuthenticated(true)} />;
-  }
-
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<MainLayout />}>
+        {/* Rota pública de Login (redireciona para / se já estiver autenticado) */}
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/" replace />
+            ) : (
+              <Login onLogin={() => setIsAuthenticated(true)} />
+            )
+          }
+        />
+
+        {/* Rotas protegidas (redireciona para /login se não estiver autenticado) */}
+        <Route
+          path="/"
+          element={
+            isAuthenticated ? (
+              <MainLayout />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        >
           <Route index element={<Dashboard />} />
           <Route path="posts" element={<Posts />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="inbox" element={<Inbox />} />
           <Route path="broadcast" element={<Broadcast />} />
         </Route>
+
+        {/* Qualquer outra rota redireciona com base no status do login */}
+        <Route
+          path="*"
+          element={<Navigate to={isAuthenticated ? "/" : "/login"} replace />}
+        />
       </Routes>
     </BrowserRouter>
   );
