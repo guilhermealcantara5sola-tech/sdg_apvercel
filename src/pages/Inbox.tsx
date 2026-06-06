@@ -15,6 +15,24 @@ const Inbox: React.FC = () => {
       try {
         const chatsList = await fetchChats();
         setChats(chatsList);
+        
+        // Verifica se há um chat especificado na URL
+        const params = new URLSearchParams(window.location.search);
+        const urlChatId = params.get('chat');
+        
+        if (urlChatId) {
+          const matchedChat = chatsList.find(c => 
+            c.id === urlChatId || 
+            c.sender === urlChatId || 
+            c.id.split('_')[0] === urlChatId ||
+            c.sender.toLowerCase().includes(urlChatId.toLowerCase())
+          );
+          if (matchedChat) {
+            setSelectedChat(matchedChat);
+            return;
+          }
+        }
+
         // Só seleciona o primeiro chat no desktop
         if (chatsList.length > 0 && window.innerWidth > 768) {
           setSelectedChat(chatsList[0]);
@@ -160,7 +178,7 @@ const Inbox: React.FC = () => {
                   </div>
  
                   {chatDetails.messages.map((msg: any, idx: number) => {
-                    const isMe = isCandidate(msg.sender);
+                    const isMe = msg.isMe ?? isCandidate(msg.sender);
                     return (
                       <div 
                         key={idx} 

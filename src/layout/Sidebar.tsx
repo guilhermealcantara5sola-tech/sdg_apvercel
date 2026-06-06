@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Image, BarChart3, MessageSquare, Send, Settings, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Image, BarChart3, MessageSquare, Send, Settings, LogOut, X, Users } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -12,11 +12,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Image, label: 'Posts', path: '/posts' },
     { icon: BarChart3, label: 'Analytics', path: '/analytics' },
+    { icon: Users, label: 'Seguidores & Leads', path: '/leads' },
     { icon: MessageSquare, label: 'Interações', path: '/inbox' },
     { icon: Send, label: 'Disparo Automático', path: '/broadcast' },
   ];
 
   const handleLogout = () => {
+    sessionStorage.removeItem('isAuthenticated');
     localStorage.removeItem('isAuthenticated');
     window.location.reload();
   };

@@ -6,6 +6,7 @@ import Posts from './pages/Posts';
 import Analytics from './pages/Analytics';
 import Inbox from './pages/Inbox';
 import Broadcast from './pages/Broadcast';
+import Leads from './pages/Leads';
 import Login from './pages/Login';
 import './index.css';
 
@@ -43,6 +44,7 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="posts" element={<Posts />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="leads" element={<Leads />} />
           <Route path="inbox" element={<Inbox />} />
           <Route path="broadcast" element={<Broadcast />} />
         </Route>

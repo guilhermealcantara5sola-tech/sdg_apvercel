@@ -538,7 +538,23 @@ def get_chat_messages(folder):
     message_file = os.path.join(inbox_dir, folder, 'message_1.json')
     
     if not os.path.exists(message_file):
-        return jsonify({"error": "Chat não encontrado"}), 404
+        # Fallback: se não achar a pasta exata (ex: 'username'), procura por 'username_123456'
+        found_file = None
+        if os.path.exists(inbox_dir):
+            try:
+                for f in os.listdir(inbox_dir):
+                    if f.split('_')[0] == folder or f == folder:
+                        potential_file = os.path.join(inbox_dir, f, 'message_1.json')
+                        if os.path.exists(potential_file):
+                            found_file = potential_file
+                            break
+            except Exception as e:
+                print(f"Erro ao buscar pasta alternativa: {e}")
+        
+        if found_file:
+            message_file = found_file
+        else:
+            return jsonify({"error": "Chat não encontrado"}), 404
         
     try:
         with open(message_file, 'r', encoding='utf-8') as f:

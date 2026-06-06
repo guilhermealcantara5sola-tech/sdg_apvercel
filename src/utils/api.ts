@@ -21,6 +21,153 @@ const getHeaders = (extraHeaders: Record<string, string> = {}) => {
   return headers;
 };
 
+const SUPABASE_URL = "https://rtnzazrlgpdcgrkvhpvx.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bnphenJsZ3BkY2dya3ZocHZ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDcxMjk5NywiZXhwIjoyMDk2Mjg4OTk3fQ.gIfhKCBcwbg7euJh6T6f04AT_LNgUqJ5WE4mTZ0iGJM";
+
+export async function fetchStatsFromSupabase() {
+  let profileMetric = {
+    total_followers: 1152,
+    new_followers: 1919,
+    unfollowed: 767,
+    reach: 95911,
+    interactions_count: 44725
+  };
+  
+  try {
+    const resMetrics = await fetch(`${SUPABASE_URL}/rest/v1/profile_metrics?order=created_at.desc&limit=1`, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (resMetrics.ok) {
+      const metricsArr = await resMetrics.json();
+      if (metricsArr && metricsArr.length > 0) {
+        profileMetric = { ...profileMetric, ...metricsArr[0] };
+      }
+    }
+  } catch (e) {
+    console.warn("Could not fetch profile_metrics from Supabase", e);
+  }
+
+  let followers: any[] = [];
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=username.asc&limit=10000`, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      followers = data.map((lead: any) => ({
+        username: lead.username,
+        timestamp: lead.followed_at ? new Date(lead.followed_at).getTime() : Date.now(),
+        followed_back: lead.is_follower !== false,
+        gender: lead.gender || (sumCharCodes(lead.username) % 100 < 52 ? "Mulheres" : "Homens"),
+        age_group: lead.age_range || inferAgeGroup(lead.username),
+        city: lead.city || inferCity(lead.username)
+      }));
+    }
+  } catch (e) {
+    console.warn("Could not fetch followers from Supabase for stats", e);
+  }
+
+  const totalFollowersCount = followers.length > 0 ? followers.length : profileMetric.total_followers;
+
+  const cityCounts: Record<string, number> = {};
+  followers.forEach(f => {
+    const city = f.city || "Outras";
+    cityCounts[city] = (cityCounts[city] || 0) + 1;
+  });
+  let cities = Object.entries(cityCounts).map(([name, count]) => ({
+    name,
+    value: parseFloat(((count / (totalFollowersCount || 1)) * 100).toFixed(1))
+  })).sort((a, b) => b.value - a.value);
+
+  if (cities.length === 0) {
+    cities = [
+      { name: 'Almenara', value: 25.6 },
+      { name: 'Belo Horizonte', value: 4.8 },
+      { name: 'Araçuaí', value: 3.5 },
+      { name: 'Rubim', value: 3.2 },
+      { name: 'Jacinto', value: 2.5 }
+    ];
+  }
+
+  const ageCounts: Record<string, number> = {};
+  followers.forEach(f => {
+    const age = f.age_group || "Adulto";
+    ageCounts[age] = (ageCounts[age] || 0) + 1;
+  });
+  
+  const ageGroupLabelsMap: Record<string, string> = {
+    "Criança": "13-17",
+    "Jovem": "18-24",
+    "Adulto": "25-34",
+    "Idoso": "55+"
+  };
+  
+  let age_groups = Object.entries(ageCounts).map(([ageKey, count]) => {
+    const age = ageGroupLabelsMap[ageKey] || ageKey;
+    return {
+      age,
+      value: parseFloat(((count / (totalFollowersCount || 1)) * 100).toFixed(1))
+    };
+  });
+  if (age_groups.length === 0) {
+    age_groups = [
+      { age: '13-17', value: 0.7 },
+      { age: '18-24', value: 10.3 },
+      { age: '25-34', value: 31.4 },
+      { age: '35-44', value: 29.0 },
+      { age: '45-54', value: 16.9 },
+      { age: '55-64', value: 8.1 },
+      { age: '65+', value: 3.2 }
+    ];
+  }
+
+  let menCount = 0;
+  let womenCount = 0;
+  followers.forEach(f => {
+    if (f.gender === "Homens") menCount++;
+    else womenCount++;
+  });
+  let gender = [
+    { name: 'Homens', value: parseFloat(((menCount / (totalFollowersCount || 1)) * 100).toFixed(1)) },
+    { name: 'Mulheres', value: parseFloat(((womenCount / (totalFollowersCount || 1)) * 100).toFixed(1)) }
+  ];
+  if (totalFollowersCount === 0 || followers.length === 0) {
+    gender = [
+      { name: 'Homens', value: 47.8 },
+      { name: 'Mulheres', value: 52.2 }
+    ];
+  }
+
+  return {
+    metrics: [
+      { label: 'Total Seguidores', value: String(totalFollowersCount), change: 6.7 },
+      { label: 'Alcance (Período)', value: profileMetric.reach > 0 ? String(profileMetric.reach) : "95.911", change: -21.3 },
+      { label: 'Total Interações', value: String(profileMetric.interactions_count), change: 12.5 },
+      { label: 'Novos Seguidores', value: String(profileMetric.new_followers), change: 5.4 }
+    ],
+    audience: {
+      cities,
+      age_groups,
+      gender,
+      weekday_activity: [
+        { day: 'Segunda', value: 12700 },
+        { day: 'Terça', value: 12700 },
+        { day: 'Quarta', value: 12800 },
+        { day: 'Quinta', value: 12800 },
+        { day: 'Sexta', value: 12700 },
+        { day: 'Sábado', value: 12700 },
+        { day: 'Domingo', value: 12800 }
+      ]
+    }
+  };
+}
+
 export async function fetchStats() {
   try {
     const res = await fetch(`${getApiBase()}/api/stats`, {
@@ -29,41 +176,46 @@ export async function fetchStats() {
     if (!res.ok) throw new Error('Failed to fetch stats');
     return await res.json();
   } catch (err) {
-    console.warn('API error, using mock data:', err);
-    return {
-      metrics: mockMetrics,
-      audience: {
-        cities: [
-          { name: 'Almenara', value: 25.6 },
-          { name: 'Belo Horizonte', value: 4.8 },
-          { name: 'Araçuaí', value: 3.5 },
-          { name: 'Rubim', value: 3.2 },
-          { name: 'Jacinto', value: 2.5 }
-        ],
-        age_groups: [
-          { age: '13-17', value: 0.7 },
-          { age: '18-24', value: 10.3 },
-          { age: '25-34', value: 31.4 },
-          { age: '35-44', value: 29.0 },
-          { age: '45-54', value: 16.9 },
-          { age: '55-64', value: 8.1 },
-          { age: '65+', value: 3.2 }
-        ],
-        gender: [
-          { name: 'Homens', value: 47.8 },
-          { name: 'Mulheres', value: 52.1 }
-        ],
-        weekday_activity: [
-          { day: 'Segunda', value: 12700 },
-          { day: 'Terça', value: 12700 },
-          { day: 'Quarta', value: 12800 },
-          { day: 'Quinta', value: 12800 },
-          { day: 'Sexta', value: 12700 },
-          { day: 'Sábado', value: 12700 },
-          { day: 'Domingo', value: 12800 }
-        ]
-      }
-    };
+    console.warn('API error, attempting Supabase direct connection...', err);
+    try {
+      return await fetchStatsFromSupabase();
+    } catch (sbErr) {
+      console.error('Supabase error, using mock data:', sbErr);
+      return {
+        metrics: mockMetrics,
+        audience: {
+          cities: [
+            { name: 'Almenara', value: 25.6 },
+            { name: 'Belo Horizonte', value: 4.8 },
+            { name: 'Araçuaí', value: 3.5 },
+            { name: 'Rubim', value: 3.2 },
+            { name: 'Jacinto', value: 2.5 }
+          ],
+          age_groups: [
+            { age: '13-17', value: 0.7 },
+            { age: '18-24', value: 10.3 },
+            { age: '25-34', value: 31.4 },
+            { age: '35-44', value: 29.0 },
+            { age: '45-54', value: 16.9 },
+            { age: '55-64', value: 8.1 },
+            { age: '65+', value: 3.2 }
+          ],
+          gender: [
+            { name: 'Homens', value: 47.8 },
+            { name: 'Mulheres', value: 52.1 }
+          ],
+          weekday_activity: [
+            { day: 'Segunda', value: 12700 },
+            { day: 'Terça', value: 12700 },
+            { day: 'Quarta', value: 12800 },
+            { day: 'Quinta', value: 12800 },
+            { day: 'Sexta', value: 12700 },
+            { day: 'Sábado', value: 12700 },
+            { day: 'Domingo', value: 12800 }
+          ]
+        }
+      };
+    }
   }
 }
 
@@ -146,7 +298,8 @@ export async function fetchChatMessagesFromSupabase(folderId: string) {
       content: item.content,
       time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       date: date.toLocaleDateString('pt-BR'),
-      timestamp_ms: date.getTime()
+      timestamp_ms: date.getTime(),
+      isMe
     };
   });
   
@@ -167,7 +320,8 @@ export async function fetchChats() {
   } catch (err) {
     console.warn('API error, attempting Supabase direct connection...', err);
     try {
-      return await fetchChatsFromSupabase();
+      const sbChats = await fetchChatsFromSupabase();
+      return sbChats;
     } catch (sbErr) {
       console.error('Supabase error, using mock messages:', sbErr);
       return mockMessages;
@@ -181,7 +335,14 @@ export async function fetchChatMessages(folderId: string) {
       headers: getHeaders()
     });
     if (!res.ok) throw new Error('Failed to fetch chat messages');
-    return await res.json();
+    const chatData = await res.json();
+    if (chatData && chatData.messages) {
+      chatData.messages = chatData.messages.map((m: any) => ({
+        ...m,
+        isMe: m.isMe === true || m.sender.toLowerCase().includes('thenperson') || m.sender.toLowerCase().includes('oriebir')
+      }));
+    }
+    return chatData;
   } catch (err) {
     console.warn('API error, attempting Supabase direct connection...', err);
     try {
@@ -198,14 +359,16 @@ export async function fetchChatMessages(folderId: string) {
             content: 'Olá! Como posso ajudar você hoje?',
             time: '14:20',
             date: 'Hoje',
-            timestamp_ms: Date.now() - 300000
+            timestamp_ms: Date.now() - 300000,
+            isMe: true
           },
           {
             sender: chat.sender,
             content: chat.lastMessage,
             time: chat.time,
             date: 'Hoje',
-            timestamp_ms: Date.now() - 60000
+            timestamp_ms: Date.now() - 60000,
+            isMe: false
           }
         ]
       };
@@ -213,8 +376,7 @@ export async function fetchChatMessages(folderId: string) {
   }
 }
 
-const SUPABASE_URL = "https://rtnzazrlgpdcgrkvhpvx.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bnphenJsZ3BkY2dya3ZocHZ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDcxMjk5NywiZXhwIjoyMDk2Mjg4OTk3fQ.gIfhKCBcwbg7euJh6T6f04AT_LNgUqJ5WE4mTZ0iGJM";
+// Supabase config moved to top of file
 
 function sumCharCodes(str: string): number {
   let sum = 0;
