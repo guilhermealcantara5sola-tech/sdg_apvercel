@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot } from '../utils/api';
-import { Send, Play, Square, Users, Settings, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Info } from 'lucide-react';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw } from 'lucide-react';
 
 interface BotState {
   status: string;
