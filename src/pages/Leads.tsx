@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchFollowers } from '../utils/api';
-import { Users, Search, Filter, MessageSquare, ExternalLink, MapPin, Calendar, Heart, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Users, Search, Filter, MessageSquare, ExternalLink, MapPin, Calendar, Heart, ShieldCheck } from 'lucide-react';
 
 const Leads: React.FC = () => {
   const navigate = useNavigate();

@@ -345,21 +345,31 @@ const Broadcast: React.FC = () => {
               botStatus === 'offline' ? 'bg-red-500 animate-pulse' : 'bg-green-500'
             }`}></span>
             <span className="text-xs text-gray-500 font-semibold">
-              {botStatus === 'offline' ? 'Robô Desconectado (Abra o server.exe no PC)' :
+              {botStatus === 'offline' ? 'Robô Desconectado (Abra o robô no computador)' :
                botStatus === 'running' ? 'Conectado • Executando disparos' :
                botStatus === 'stopping' ? 'Conectado • Parando disparos' :
                'Robô Conectado (Pronto para disparar)'}
             </span>
           </div>
         </div>
-        <a
-          href="/server.exe"
-          download="server.exe"
-          className="flex items-center gap-2 text-sm font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 px-4 py-2.5 rounded-xl transition-all"
-        >
-          <Download size={16} />
-          Baixar Robô para Windows (.exe)
-        </a>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="/server.exe"
+            download="server.exe"
+            className="flex items-center gap-2 text-sm font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow"
+          >
+            <Download size={16} />
+            Baixar para Windows (.exe)
+          </a>
+          <a
+            href="/robo_mac.zip"
+            download="robo_mac.zip"
+            className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow"
+          >
+            <Download size={16} />
+            Baixar para Mac (.zip)
+          </a>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

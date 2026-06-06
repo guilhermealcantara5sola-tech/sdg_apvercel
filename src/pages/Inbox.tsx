@@ -21,7 +21,7 @@ const Inbox: React.FC = () => {
         const urlChatId = params.get('chat');
         
         if (urlChatId) {
-          const matchedChat = chatsList.find(c => 
+          const matchedChat = chatsList.find((c: any) => 
             c.id === urlChatId || 
             c.sender === urlChatId || 
             c.id.split('_')[0] === urlChatId ||
