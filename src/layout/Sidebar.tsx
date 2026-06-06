@@ -1,8 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Image, BarChart3, MessageSquare, Send, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Image, BarChart3, MessageSquare, Send, Settings, LogOut, X } from 'lucide-react';
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
     { icon: Image, label: 'Posts', path: '/posts' },
@@ -11,18 +16,22 @@ const Sidebar: React.FC = () => {
     { icon: Send, label: 'Disparo Automático', path: '/broadcast' },
   ];
 
-
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
     window.location.reload();
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 h-screen flex flex-col sticky top-0">
-      <div className="p-6 border-b border-gray-100">
+    <aside className={`w-64 bg-white border-r border-gray-200 h-screen flex flex-col fixed inset-y-0 left-0 z-50 transform md:sticky md:translate-x-0 transition-transform duration-300 ${
+      isOpen ? 'translate-x-0' : '-translate-x-full'
+    }`}>
+      <div className="p-6 border-b border-gray-100 flex items-center justify-between">
         <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
           InstaManager
         </h1>
+        <button onClick={onClose} className="md:hidden text-gray-500 hover:text-gray-700 p-1 rounded-lg">
+          <X size={20} />
+        </button>
       </div>
       
       <nav className="flex-1 p-4 space-y-1">
@@ -30,6 +39,7 @@ const Sidebar: React.FC = () => {
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive 

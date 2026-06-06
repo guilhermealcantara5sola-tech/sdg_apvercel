@@ -57,14 +57,96 @@ export async function fetchPosts() {
   }
 }
 
+export async function fetchChatsFromSupabase() {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/interactions?select=id,lead_id,content,timestamp,sender,leads(username,full_name)&order=timestamp.desc&limit=500`, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  if (!res.ok) throw new Error('Failed to fetch chats from Supabase');
+  const interactions = await res.json();
+  
+  const chatMap = new Map<string, any>();
+  for (const item of interactions) {
+    if (!item.leads) continue;
+    const leadId = item.lead_id;
+    if (!chatMap.has(leadId)) {
+      const username = item.leads.username;
+      const name = item.leads.full_name || username;
+      const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleString('pt-BR') : '';
+      
+      chatMap.set(leadId, {
+        id: username,
+        sender: name,
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`,
+        lastMessage: item.content,
+        time: dateStr,
+        timestamp_ms: item.timestamp ? new Date(item.timestamp).getTime() : 0,
+        unread: false,
+        participants: [name, 'Thenperson Oriebir']
+      });
+    }
+  }
+  
+  return Array.from(chatMap.values());
+}
+
+export async function fetchChatMessagesFromSupabase(folderId: string) {
+  const cleanUsername = folderId.split('_')[0];
+  
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/interactions?select=content,timestamp,sender,leads!inner(username,full_name)&leads.username=eq.${cleanUsername}&order=timestamp.asc`, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`
+    }
+  });
+  
+  if (!res.ok) throw new Error('Failed to fetch chat messages from Supabase');
+  const data = await res.json();
+  
+  if (data.length === 0) {
+    return {
+      title: cleanUsername,
+      participants: [cleanUsername, 'Thenperson Oriebir'],
+      messages: []
+    };
+  }
+  
+  const title = data[0].leads.full_name || cleanUsername;
+  const messages = data.map((item: any) => {
+    const isMe = item.sender === 'me';
+    const senderName = isMe ? 'Thenperson Oriebir' : title;
+    const date = item.timestamp ? new Date(item.timestamp) : new Date();
+    return {
+      sender: senderName,
+      content: item.content,
+      time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      date: date.toLocaleDateString('pt-BR'),
+      timestamp_ms: date.getTime()
+    };
+  });
+  
+  return {
+    title,
+    participants: [title, 'Thenperson Oriebir'],
+    messages
+  };
+}
+
 export async function fetchChats() {
   try {
     const res = await fetch(`${API_BASE}/api/chats`);
     if (!res.ok) throw new Error('Failed to fetch chats');
     return await res.json();
   } catch (err) {
-    console.warn('API error, using mock data:', err);
-    return mockMessages;
+    console.warn('API error, attempting Supabase direct connection...', err);
+    try {
+      return await fetchChatsFromSupabase();
+    } catch (sbErr) {
+      console.error('Supabase error, using mock messages:', sbErr);
+      return mockMessages;
+    }
   }
 }
 
@@ -74,28 +156,33 @@ export async function fetchChatMessages(folderId: string) {
     if (!res.ok) throw new Error('Failed to fetch chat messages');
     return await res.json();
   } catch (err) {
-    console.warn('API error, returning mock messages for chat:', err);
-    const chat = mockMessages.find(m => m.id === folderId) || mockMessages[0];
-    return {
-      title: chat.sender,
-      participants: [chat.sender, 'Thenperson Oriebir'],
-      messages: [
-        {
-          sender: 'Thenperson Oriebir',
-          content: 'Olá! Como posso ajudar você hoje?',
-          time: '14:20',
-          date: 'Hoje',
-          timestamp_ms: Date.now() - 300000
-        },
-        {
-          sender: chat.sender,
-          content: chat.lastMessage,
-          time: chat.time,
-          date: 'Hoje',
-          timestamp_ms: Date.now() - 60000
-        }
-      ]
-    };
+    console.warn('API error, attempting Supabase direct connection...', err);
+    try {
+      return await fetchChatMessagesFromSupabase(folderId);
+    } catch (sbErr) {
+      console.error('Supabase error, returning mock messages for chat:', sbErr);
+      const chat = mockMessages.find(m => m.id === folderId) || mockMessages[0];
+      return {
+        title: chat.sender,
+        participants: [chat.sender, 'Thenperson Oriebir'],
+        messages: [
+          {
+            sender: 'Thenperson Oriebir',
+            content: 'Olá! Como posso ajudar você hoje?',
+            time: '14:20',
+            date: 'Hoje',
+            timestamp_ms: Date.now() - 300000
+          },
+          {
+            sender: chat.sender,
+            content: chat.lastMessage,
+            time: chat.time,
+            date: 'Hoje',
+            timestamp_ms: Date.now() - 60000
+          }
+        ]
+      };
+    }
   }
 }
 

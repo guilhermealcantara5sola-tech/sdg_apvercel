@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { fetchChats, fetchChatMessages } from '../utils/api';
-import { Search, Send, Smile, Paperclip, MoreVertical, Phone, Video } from 'lucide-react';
+import { Search, Send, Smile, Paperclip, MoreVertical, Phone, Video, ArrowLeft } from 'lucide-react';
 
 const Inbox: React.FC = () => {
   const [chats, setChats] = useState<any[]>([]);
@@ -15,7 +15,8 @@ const Inbox: React.FC = () => {
       try {
         const chatsList = await fetchChats();
         setChats(chatsList);
-        if (chatsList.length > 0) {
+        // Só seleciona o primeiro chat no desktop
+        if (chatsList.length > 0 && window.innerWidth > 768) {
           setSelectedChat(chatsList[0]);
         }
       } catch (err) {
@@ -63,9 +64,11 @@ const Inbox: React.FC = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-120px)] bg-white rounded-2xl border border-gray-100 shadow-sm flex overflow-hidden">
-      {/* Sidebar - Chat List */}
-      <div className="w-80 border-r border-gray-100 flex flex-col">
+    <div className="h-[calc(100vh-100px)] md:h-[calc(100vh-120px)] bg-white rounded-2xl border border-gray-100 shadow-sm flex overflow-hidden">
+      {/* Sidebar - Chat List (oculta no mobile se um chat estiver aberto) */}
+      <div className={`w-full md:w-80 border-r border-gray-100 flex flex-col shrink-0 ${
+        selectedChat ? 'hidden md:flex' : 'flex'
+      }`}>
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Mensagens</h2>
           <div className="relative">
@@ -105,31 +108,45 @@ const Inbox: React.FC = () => {
               )}
             </button>
           ))}
+          {filteredChats.length === 0 && (
+            <div className="text-center py-8 text-xs text-gray-400">Nenhuma conversa encontrada</div>
+          )}
         </div>
       </div>
-
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-gray-50/30">
+ 
+      {/* Chat Area (oculta no mobile se nenhum chat estiver aberto) */}
+      <div className={`flex-1 flex flex-col bg-gray-50/30 ${
+        !selectedChat ? 'hidden md:flex' : 'flex'
+      }`}>
         {selectedChat && chatDetails ? (
           <>
             {/* Chat Header */}
-            <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6">
-              <div className="flex items-center gap-3">
+            <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                {/* Botão voltar no mobile */}
+                <button 
+                  onClick={() => setSelectedChat(null)}
+                  className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-lg md:hidden transition-colors"
+                  aria-label="Voltar para a lista"
+                >
+                  <ArrowLeft size={20} />
+                </button>
+                
                 <img src={selectedChat.avatar} alt={selectedChat.sender} className="w-10 h-10 rounded-full bg-purple-100" />
                 <div>
                   <h3 className="font-bold text-gray-800 text-sm">@{selectedChat.sender}</h3>
                   <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Histórico Real</span>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-gray-400">
+              <div className="flex items-center gap-3 sm:gap-4 text-gray-400">
                 <button className="hover:text-purple-600 transition-colors"><Phone size={20} /></button>
                 <button className="hover:text-purple-600 transition-colors"><Video size={20} /></button>
                 <button className="hover:text-purple-600 transition-colors"><MoreVertical size={20} /></button>
               </div>
             </div>
-
+ 
             {/* Messages Container */}
-            <div className="flex-1 p-6 overflow-y-auto space-y-4">
+            <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4">
               {loadingMessages ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-600"></div>
@@ -141,18 +158,18 @@ const Inbox: React.FC = () => {
                       Conversa Histórica
                     </span>
                   </div>
-
+ 
                   {chatDetails.messages.map((msg: any, idx: number) => {
                     const isMe = isCandidate(msg.sender);
                     return (
                       <div 
                         key={idx} 
-                        className={`flex gap-3 max-w-[75%] ${isMe ? 'flex-row-reverse ml-auto' : 'mr-auto'}`}
+                        className={`flex gap-2 sm:gap-3 max-w-[85%] sm:max-w-[75%] ${isMe ? 'flex-row-reverse ml-auto' : 'mr-auto'}`}
                       >
                         {!isMe && (
                           <img src={selectedChat.avatar} alt="" className="w-8 h-8 rounded-full self-end bg-purple-100" />
                         )}
-                        <div className={`p-4 rounded-2xl shadow-sm border ${
+                        <div className={`p-3 sm:p-4 rounded-2xl shadow-sm border ${
                           isMe 
                             ? 'bg-purple-600 text-white border-purple-500 rounded-br-none' 
                             : 'bg-white text-gray-700 border-gray-100 rounded-bl-none'
@@ -165,18 +182,21 @@ const Inbox: React.FC = () => {
                       </div>
                     );
                   })}
+                  {chatDetails.messages.length === 0 && (
+                    <div className="text-center py-12 text-sm text-gray-400">Sem histórico de mensagens.</div>
+                  )}
                 </>
               )}
             </div>
-
+ 
             {/* Message Input */}
             <div className="p-4 bg-white border-t border-gray-100">
-              <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-2 border border-gray-100">
+              <div className="flex items-center gap-2 sm:gap-3 bg-gray-50 rounded-xl px-4 py-2 border border-gray-100">
                 <button className="text-gray-400 hover:text-purple-600 transition-colors"><Smile size={20} /></button>
                 <button className="text-gray-400 hover:text-purple-600 transition-colors"><Paperclip size={20} /></button>
                 <input
                   type="text"
-                  placeholder="Responder (Somente visualização do histórico)..."
+                  placeholder="Responder (Visualização)..."
                   disabled
                   className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-gray-400 cursor-not-allowed"
                 />
