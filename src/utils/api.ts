@@ -334,7 +334,7 @@ export async function fetchBotStatus() {
     return await res.json();
   } catch (err) {
     return {
-      status: 'idle',
+      status: 'offline',
       progress: { current: 0, total: 0, current_user: '' },
       logs: ['[SISTEMA] Backend offline. Conecte o servidor Python local para usar o robô de disparo.']
     };

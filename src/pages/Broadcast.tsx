@@ -44,7 +44,7 @@ const Broadcast: React.FC = () => {
 
   // Status e Logs
   const [botState, setBotState] = useState<BotState>({
-    status: 'idle',
+    status: 'offline',
     progress: { current: 0, total: 0, current_user: '' },
     logs: []
   });
@@ -145,31 +145,29 @@ const Broadcast: React.FC = () => {
     localStorage.setItem('broadcast_accounts', JSON.stringify(accounts));
   }, [accounts]);
 
-  // Poll do status do bot quando rodando
+  // Poll do status do bot a cada 3 segundos de forma contínua para atualizar logs e conexões
   useEffect(() => {
-    let interval: any = null;
-
     async function checkStatus() {
-      const statusData = await fetchBotStatus();
-      setBotState(statusData);
-      
-      if (!statusData || statusData.status === 'idle' || statusData.status === 'completed' || statusData.status === 'error') {
-        if (interval) clearInterval(interval);
+      try {
+        const statusData = await fetchBotStatus();
+        setBotState(statusData);
+      } catch (err) {
+        setBotState({
+          status: 'offline',
+          progress: { current: 0, total: 0, current_user: '' },
+          logs: ['[SISTEMA] Backend offline. Conecte o servidor Python local para usar o robô de disparo.']
+        });
       }
     }
 
     checkStatus();
 
-    // Se estiver rodando ou parando, atualiza a cada 2 segundos
-    const currentStatus = botState?.status || 'idle';
-    if (currentStatus === 'running' || currentStatus === 'stopping') {
-      interval = setInterval(checkStatus, 2000);
-    }
+    const interval = setInterval(checkStatus, 3000);
 
     return () => {
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
     };
-  }, [botState?.status]);
+  }, [apiUrl, apiToken]);
 
   // Scroll automático do log de terminal
   useEffect(() => {
@@ -323,7 +321,7 @@ const Broadcast: React.FC = () => {
   };
 
   // Variaveis de status seguras contra undefined
-  const botStatus = botState?.status || 'idle';
+  const botStatus = botState?.status || 'offline';
   const botProgress = botState?.progress || { current: 0, total: 0, current_user: '' };
   const botLogs = botState?.logs || [];
   const isRunning = botStatus === 'running' || botStatus === 'stopping';
@@ -341,9 +339,16 @@ const Broadcast: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-800">Disparo de Mensagens</h2>
           <p className="text-gray-500 text-sm">Envie mensagens automatizadas em massa com rotatividade de contas e filtros avançados.</p>
           <div className="flex items-center gap-2 mt-2">
-            <span className={`w-2.5 h-2.5 rounded-full ${botStatus === 'running' ? 'bg-green-500 animate-pulse' : botStatus === 'stopping' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}`}></span>
+            <span className={`w-2.5 h-2.5 rounded-full ${
+              botStatus === 'running' ? 'bg-green-500 animate-pulse' :
+              botStatus === 'stopping' ? 'bg-amber-500 animate-pulse' :
+              botStatus === 'offline' ? 'bg-red-500 animate-pulse' : 'bg-green-500'
+            }`}></span>
             <span className="text-xs text-gray-500 font-semibold">
-              {botStatus === 'running' ? 'Conectado • Executando disparos' : botStatus === 'stopping' ? 'Conectado • Parando disparos' : 'Robô Pareado (Pronto para disparar)'}
+              {botStatus === 'offline' ? 'Robô Desconectado (Abra o server.exe no PC)' :
+               botStatus === 'running' ? 'Conectado • Executando disparos' :
+               botStatus === 'stopping' ? 'Conectado • Parando disparos' :
+               'Robô Conectado (Pronto para disparar)'}
             </span>
           </div>
         </div>
