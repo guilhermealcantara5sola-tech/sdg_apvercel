@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount, fetchConnectionInfo } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Settings, QrCode, Download } from 'lucide-react';
+import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Download } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -35,22 +35,6 @@ const Broadcast: React.FC = () => {
   const [apiToken, setApiToken] = useState(() => {
     return localStorage.getItem('api_token') || '';
   });
-
-  // Estados de Pareamento via QR Code
-  const [showQrCode, setShowQrCode] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState('');
-  const [pairingDetails, setPairingDetails] = useState<any>(null);
-  const [loadingQr, setLoadingQr] = useState(false);
-
-  const handleApiUrlChange = (val: string) => {
-    setApiUrl(val);
-    localStorage.setItem('api_base_url', val);
-  };
-
-  const handleApiTokenChange = (val: string) => {
-    setApiToken(val);
-    localStorage.setItem('api_token', val);
-  };
 
   // Configurações de envio
   const [message, setMessage] = useState('');
@@ -135,29 +119,7 @@ const Broadcast: React.FC = () => {
     }
   }, []);
 
-  // Gerar QR Code de pareamento consultando o servidor local
-  const handleGenerateQr = async () => {
-    setLoadingQr(true);
-    try {
-      const info = await fetchConnectionInfo();
-      setPairingDetails(info);
-      
-      // Se tiver ngrok detectado no computador, usa ele. Senão cai no IP local (localhost)
-      const targetApiUrl = info.ngrok_url || info.local_url;
-      
-      // Cria a URL de pareamento apontando para a instância atual do Vercel/Web App
-      const pairingLink = `${window.location.origin}${window.location.pathname}?api_url=${encodeURIComponent(targetApiUrl)}&api_token=${encodeURIComponent(info.api_token)}`;
-      
-      // Gera a imagem do QR Code
-      const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pairingLink)}`;
-      setQrCodeUrl(qrImgUrl);
-      setShowQrCode(true);
-    } catch (err) {
-      alert('Não foi possível obter dados de conexão. O servidor Python local está rodando e online?');
-    } finally {
-      setLoadingQr(false);
-    }
-  };
+
 
   // Carregar contas do computador ao montar ou mudar dados da conexão
   useEffect(() => {
@@ -374,113 +336,31 @@ const Broadcast: React.FC = () => {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Disparo de Mensagens</h2>
-        <p className="text-gray-500">Envie mensagens automatizadas em massa com rotatividade de contas e filtros avançados.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Disparo de Mensagens</h2>
+          <p className="text-gray-500 text-sm">Envie mensagens automatizadas em massa com rotatividade de contas e filtros avançados.</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${botStatus === 'running' ? 'bg-green-500 animate-pulse' : botStatus === 'stopping' ? 'bg-amber-500 animate-pulse' : 'bg-gray-400'}`}></span>
+            <span className="text-xs text-gray-500 font-semibold">
+              {botStatus === 'running' ? 'Conectado • Executando disparos' : botStatus === 'stopping' ? 'Conectado • Parando disparos' : 'Robô Pareado (Pronto para disparar)'}
+            </span>
+          </div>
+        </div>
+        <a
+          href="/server.exe"
+          download="server.exe"
+          className="flex items-center gap-2 text-sm font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 px-4 py-2.5 rounded-xl transition-all"
+        >
+          <Download size={16} />
+          Baixar Robô para Windows (.exe)
+        </a>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* Painel de Configurações */}
         <div className="lg:col-span-2 space-y-6">
-
-          {/* Conexão com o Servidor de Automação */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-gray-50 pb-3">
-              <div className="flex items-center gap-2 text-purple-600 font-bold">
-                <Settings size={20} />
-                <h3>Servidor de Automação (API)</h3>
-              </div>
-              <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
-                botStatus === 'running' ? 'bg-green-100 text-green-700' :
-                botStatus === 'stopping' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-              }`}>
-                {botStatus === 'running' ? 'Conectado • Executando' : 'Aguardando'}
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500 uppercase block">Endereço da API do Robô</label>
-                <input
-                  type="text"
-                  placeholder="http://localhost:5000"
-                  disabled={isRunning}
-                  value={apiUrl}
-                  onChange={(e) => handleApiUrlChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-mono"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-500 uppercase block">Chave de Pareamento (API Token)</label>
-                <input
-                  type="text"
-                  placeholder="Digite a chave gerada no PC"
-                  disabled={isRunning}
-                  value={apiToken}
-                  onChange={(e) => handleApiTokenChange(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-mono"
-                />
-              </div>
-            </div>
-            
-            <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-              Por padrão, usa <code className="bg-gray-100 px-1 py-0.5 rounded">http://localhost:5000</code>. Para controlar os disparos a partir do celular ou tablet de forma online, execute o <strong className="text-purple-600 font-bold">ngrok</strong> no computador (<code className="bg-gray-100 px-1 py-0.5 rounded">ngrok http 5000</code>), cole o link público gerado e insira a <strong className="text-purple-600 font-bold">Chave de Pareamento</strong> que aparece no terminal do computador.
-            </p>
-
-            {/* Ações de Download do Servidor e Sincronização via QR Code */}
-            <div className="flex flex-wrap gap-3 mt-4 pt-3 border-t border-gray-50">
-              <a
-                href="/server.exe"
-                download="server.exe"
-                className="flex items-center gap-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 px-4 py-2.5 rounded-xl transition-all"
-              >
-                <Download size={14} />
-                Baixar Servidor Windows (.exe)
-              </a>
-              <button
-                type="button"
-                onClick={handleGenerateQr}
-                disabled={loadingQr}
-                className="flex items-center gap-2 text-xs font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 px-4 py-2.5 rounded-xl transition-all"
-              >
-                <QrCode size={14} />
-                {loadingQr ? 'Carregando...' : showQrCode ? 'Ocultar QR Code' : 'Parear Celular via QR Code'}
-              </button>
-            </div>
-
-            {/* Painel do QR Code de Pareamento */}
-            {showQrCode && (
-              <div className="mt-4 p-5 bg-purple-50/50 border border-purple-100 rounded-2xl flex flex-col md:flex-row items-center gap-5 animate-fadeIn">
-                <div className="bg-white p-3 rounded-xl shadow-sm border border-purple-100/30 shrink-0">
-                  {qrCodeUrl && (
-                    <img src={qrCodeUrl} alt="QR Code de Pareamento" className="w-36 h-36" />
-                  )}
-                </div>
-                <div className="space-y-2 text-left flex-1">
-                  <h4 className="text-sm font-bold text-purple-800">📱 Pareamento Instantâneo pelo Celular</h4>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    1. Abra a câmera do seu celular ou tablet.<br />
-                    2. Aponte para o QR Code ao lado.<br />
-                    3. Toque no link que aparecer para abrir a página já sincronizada com o seu computador automaticamente!
-                  </p>
-                  {pairingDetails && (
-                    <div className="pt-1 text-[10px] text-gray-400 font-mono space-y-0.5">
-                      <div>
-                        Status Ngrok: {' '}
-                        {pairingDetails.ngrok_url ? (
-                          <span className="text-green-600 font-bold">Ativo ({pairingDetails.ngrok_url})</span>
-                        ) : (
-                          <span className="text-amber-500 font-semibold">Inativo (Apenas rede local)</span>
-                        )}
-                      </div>
-                      <div>Chave de Segurança: <span className="text-purple-700 font-bold">{pairingDetails.api_token}</span></div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
           
           {/* Sessão de Contas Rotativas */}
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
