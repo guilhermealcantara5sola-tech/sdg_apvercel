@@ -99,7 +99,8 @@ const Broadcast: React.FC = () => {
   const [includeGeminiKey, setIncludeGeminiKey] = useState(false);
   const [includePostUrl, setIncludePostUrl] = useState(true);
   const [includeLeads, setIncludeLeads] = useState(true);
-  const [activeTab, setActiveTab] = useState<'directs' | 'posts' | 'accounts' | 'config'>('directs');
+  const [activeTab, setActiveTab] = useState<'directs' | 'follow' | 'posts' | 'accounts' | 'config'>('directs');
+  const [exportCampaignType, setExportCampaignType] = useState<'messages' | 'post_action' | 'follow'>('messages');
 
   // Importar Campanha (.json)
   const handleImportCampaign = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,6 +121,29 @@ const Broadcast: React.FC = () => {
             console.warn(err);
           }
         }
+
+        // Detecta e ajusta aba conforme o tipo de campanha importado
+        const type = camp.campaign_type;
+        if (type === 'messages') {
+          setActiveTab('directs');
+          if (typeof camp.action === 'string') setTriggerAction(camp.action);
+        } else if (type === 'follow') {
+          setActiveTab('follow');
+          setTriggerAction('follow');
+        } else if (type === 'post_action') {
+          setActiveTab('posts');
+          if (typeof camp.like === 'boolean') setPostLike(camp.like);
+          if (typeof camp.share === 'boolean') setPostShare(camp.share);
+          if (typeof camp.post_min_delay === 'number') setPostMinDelay(camp.post_min_delay);
+          else if (typeof camp.min_delay === 'number') setPostMinDelay(camp.min_delay);
+          
+          if (typeof camp.post_max_delay === 'number') setPostMaxDelay(camp.post_max_delay);
+          else if (typeof camp.max_delay === 'number') setPostMaxDelay(camp.max_delay);
+          
+          if (typeof camp.post_rotate_every === 'number') setPostRotateEvery(camp.post_rotate_every);
+          else if (typeof camp.rotate_every === 'number') setPostRotateEvery(camp.rotate_every);
+        }
+
         if (typeof camp.message === 'string') setMessage(camp.message);
         if (typeof camp.min_delay === 'number') setMinDelay(camp.min_delay);
         if (typeof camp.max_delay === 'number') setMaxDelay(camp.max_delay);
@@ -154,30 +178,45 @@ const Broadcast: React.FC = () => {
     const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
 
     const campData: any = {
-      accounts: includeAccounts ? accounts : [],
-      message: message,
-      min_delay: minDelay,
-      max_delay: maxDelay,
-      rotate_every: rotateEvery,
-      action: triggerAction,
-      use_gemini: useGemini,
-      gemini_api_key: includeGeminiKey ? geminiApiKey : "",
-      gemini_prompt: geminiPrompt,
-      post_url: includePostUrl ? postUrl : "",
-      like: postLike,
-      share: postShare,
-      post_min_delay: postMinDelay,
-      post_max_delay: postMaxDelay,
-      post_rotate_every: postRotateEvery,
-      send_mode: sendMode,
-      leads: includeLeads ? allLeads : []
+      campaign_type: exportCampaignType,
+      accounts: includeAccounts ? accounts : []
     };
+
+    if (exportCampaignType === 'messages') {
+      campData.message = message;
+      campData.min_delay = minDelay;
+      campData.max_delay = maxDelay;
+      campData.rotate_every = rotateEvery;
+      campData.action = triggerAction === 'follow' ? 'message' : triggerAction;
+      campData.use_gemini = useGemini;
+      campData.gemini_api_key = includeGeminiKey ? geminiApiKey : "";
+      campData.gemini_prompt = geminiPrompt;
+      campData.send_mode = sendMode;
+      campData.leads = includeLeads ? allLeads : [];
+    } else if (exportCampaignType === 'follow') {
+      campData.min_delay = minDelay;
+      campData.max_delay = maxDelay;
+      campData.rotate_every = rotateEvery;
+      campData.action = 'follow';
+      campData.leads = includeLeads ? allLeads : [];
+    } else if (exportCampaignType === 'post_action') {
+      campData.post_url = includePostUrl ? postUrl : "";
+      campData.like = postLike;
+      campData.share = postShare;
+      campData.min_delay = postMinDelay;
+      campData.max_delay = postMaxDelay;
+      campData.rotate_every = postRotateEvery;
+      campData.use_gemini = useGemini;
+      campData.gemini_api_key = includeGeminiKey ? geminiApiKey : "";
+      campData.gemini_prompt = geminiPrompt;
+      campData.leads = includeLeads ? allLeads : [];
+    }
 
     const blob = new Blob([JSON.stringify(campData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'campanha.json';
+    a.download = `campanha_${exportCampaignType}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -637,7 +676,12 @@ const Broadcast: React.FC = () => {
             />
           </label>
           <button
-            onClick={() => setShowSaveModal(true)}
+            onClick={() => {
+              if (activeTab === 'directs') setExportCampaignType('messages');
+              else if (activeTab === 'follow') setExportCampaignType('follow');
+              else if (activeTab === 'posts') setExportCampaignType('post_action');
+              setShowSaveModal(true);
+            }}
             className="flex items-center gap-2 text-sm font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow"
           >
             <Save size={16} />
@@ -657,12 +701,26 @@ const Broadcast: React.FC = () => {
       {/* Menu de Abas da Campanha */}
       <div className="flex flex-wrap border-b border-gray-200 gap-6 mb-6">
         <button
-          onClick={() => setActiveTab('directs')}
+          onClick={() => {
+            setActiveTab('directs');
+            if (triggerAction === 'follow') setTriggerAction('message');
+          }}
           className={`pb-3 text-sm font-bold transition-all relative ${
             activeTab === 'directs' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
           }`}
         >
-          Disparo de Directs
+          ✉️ Disparo de Directs
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('follow');
+            setTriggerAction('follow');
+          }}
+          className={`pb-3 text-sm font-bold transition-all relative ${
+            activeTab === 'follow' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
+          }`}
+        >
+          👤 Seguir Perfis
         </button>
         <button
           onClick={() => setActiveTab('posts')}
@@ -670,7 +728,7 @@ const Broadcast: React.FC = () => {
             activeTab === 'posts' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
           }`}
         >
-          Impulsionar Posts
+          🚀 Impulsionar Posts
         </button>
         <button
           onClick={() => setActiveTab('accounts')}
@@ -678,7 +736,7 @@ const Broadcast: React.FC = () => {
             activeTab === 'accounts' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
           }`}
         >
-          Contas do Instagram
+          👥 Contas do Instagram
         </button>
         <button
           onClick={() => setActiveTab('config')}
@@ -686,7 +744,7 @@ const Broadcast: React.FC = () => {
             activeTab === 'config' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
           }`}
         >
-          Conexão & API
+          ⚙️ Conexão & API
         </button>
       </div>
 
@@ -828,7 +886,6 @@ const Broadcast: React.FC = () => {
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold text-gray-700"
                 >
                   <option value="message">Enviar Apenas Mensagem no Direct</option>
-                  <option value="follow">Apenas Seguir Usuário</option>
                   <option value="both">Seguir e Enviar Mensagem</option>
                 </select>
               </div>
@@ -934,6 +991,73 @@ const Broadcast: React.FC = () => {
                 <div>
                   <p className="font-bold">Dica de Segurança:</p>
                   <p className="mt-0.5 leading-relaxed">Rotacionar entre várias contas ajuda muito a diluir o volume de disparos, porém manter delays seguros (como 60 a 120s) ainda é essencial para a saúde das contas.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ABA: SEGUIR PERFIS */}
+          {activeTab === 'follow' && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 text-purple-600 font-bold mb-2">
+                <Users size={20} />
+                <h3>Seguimento de Perfis</h3>
+              </div>
+              
+              <div className="bg-purple-50/50 p-4 rounded-xl space-y-2 text-purple-900 border border-purple-100 text-xs">
+                <p className="font-semibold flex items-center gap-1">
+                  <AlertCircle size={14} />
+                  Campanha de Seguimento Ativa
+                </p>
+                <p className="text-purple-700 leading-relaxed">
+                  As contas do Instagram selecionadas irão seguir cada perfil presente na <strong>Lista de Destinatários</strong> (coluna da direita).
+                </p>
+              </div>
+
+              {/* Modo de Envio */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Modo de Distribuição</label>
+                  <select
+                    disabled={isRunning}
+                    value={sendMode}
+                    onChange={(e) => setSendMode(e.target.value as any)}
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold text-gray-700"
+                  >
+                    <option value="sequential">Rotativo (Uma conta de cada vez)</option>
+                    <option value="parallel">Paralelo (Todas as contas juntas)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Mínimo (segundos)</label>
+                  <input
+                    type="number"
+                    disabled={isRunning}
+                    value={minDelay}
+                    onChange={(e) => setMinDelay(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Máximo (segundos)</label>
+                  <input
+                    type="number"
+                    disabled={isRunning}
+                    value={maxDelay}
+                    onChange={(e) => setMaxDelay(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-4 rounded-xl flex gap-3 text-amber-800 text-xs mt-4">
+                <AlertCircle size={20} className="flex-shrink-0" />
+                <div>
+                  <p className="font-bold">Dica de Segurança:</p>
+                  <p className="mt-0.5 leading-relaxed">Rotacionar entre várias contas ajuda muito a diluir o volume de ações de seguir, porém manter delays seguros (como 60 a 120s) ainda é essencial para evitar bloqueios de ação pelo Instagram.</p>
                 </div>
               </div>
             </div>
@@ -1254,7 +1378,13 @@ const Broadcast: React.FC = () => {
               
               <div className="flex gap-3 w-full">
                 <button
-                  onClick={isRunning ? handleStop : handleStart}
+                  onClick={
+                    isRunning 
+                      ? handleStop 
+                      : activeTab === 'posts' 
+                        ? handlePostActionStart 
+                        : handleStart
+                  }
                   disabled={botStatus === 'stopping'}
                   className={`w-full font-bold px-6 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors ${
                     isRunning 
@@ -1264,10 +1394,16 @@ const Broadcast: React.FC = () => {
                 >
                   {isRunning ? (
                     <Square size={16} key="stop-icon" />
+                  ) : activeTab === 'posts' ? (
+                    <Heart size={16} key="heart-icon" />
                   ) : (
                     <Play size={16} key="start-icon" />
                   )}
-                  {isRunning ? 'PARAR' : 'INICIAR DISPARO DIRECT'}
+                  {isRunning ? 'PARAR' : 
+                    activeTab === 'posts' ? 'INICIAR IMPULSIONAMENTO' :
+                    activeTab === 'follow' ? 'INICIAR SEGUIMENTOS' :
+                    'INICIAR DISPARO DIRECT'
+                  }
                 </button>
               </div>
             </div>
@@ -1477,6 +1613,32 @@ const Broadcast: React.FC = () => {
               </p>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                Tipo de Campanha a Exportar
+              </label>
+              <select
+                value={exportCampaignType}
+                onChange={(e) => {
+                  const val = e.target.value as any;
+                  setExportCampaignType(val);
+                  if (val === 'follow') {
+                    setIncludePostUrl(false);
+                    setIncludeGeminiKey(false);
+                  } else if (val === 'messages') {
+                    setIncludePostUrl(false);
+                  } else if (val === 'post_action') {
+                    setIncludePostUrl(true);
+                  }
+                }}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              >
+                <option value="messages">✉️ Enviar Mensagens (Directs)</option>
+                <option value="post_action">🚀 Impulsionar Post (Curtir & Compartilhar)</option>
+                <option value="follow">👤 Apenas Seguir Perfis</option>
+              </select>
+            </div>
+
             <div className="space-y-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100 text-sm">
               <label className="flex items-start gap-3 cursor-pointer select-none">
                 <input
@@ -1491,31 +1653,35 @@ const Broadcast: React.FC = () => {
                 </div>
               </label>
 
-              <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
-                <input
-                  type="checkbox"
-                  checked={includeGeminiKey}
-                  onChange={(e) => setIncludeGeminiKey(e.target.checked)}
-                  className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <span className="font-semibold text-gray-700 block text-xs">Incluir Chave API do Gemini</span>
-                  <span className="text-gray-500 text-[11px] block">Desmarque para digitar a chave no terminal de forma mais segura.</span>
-                </div>
-              </label>
+              {(exportCampaignType === 'messages' || exportCampaignType === 'post_action') && (
+                <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
+                  <input
+                    type="checkbox"
+                    checked={includeGeminiKey}
+                    onChange={(e) => setIncludeGeminiKey(e.target.checked)}
+                    className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-gray-700 block text-xs">Incluir Chave API do Gemini</span>
+                    <span className="text-gray-500 text-[11px] block">Desmarque para digitar a chave no terminal de forma mais segura.</span>
+                  </div>
+                </label>
+              )}
 
-              <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
-                <input
-                  type="checkbox"
-                  checked={includePostUrl}
-                  onChange={(e) => setIncludePostUrl(e.target.checked)}
-                  className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
-                />
-                <div>
-                  <span className="font-semibold text-gray-700 block text-xs">Incluir Link da Publicação</span>
-                  <span className="text-gray-500 text-[11px] block">Desmarque se a publicação ainda não foi postada (será perguntada ao rodar).</span>
-                </div>
-              </label>
+              {exportCampaignType === 'post_action' && (
+                <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
+                  <input
+                    type="checkbox"
+                    checked={includePostUrl}
+                    onChange={(e) => setIncludePostUrl(e.target.checked)}
+                    className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-gray-700 block text-xs">Incluir Link da Publicação</span>
+                    <span className="text-gray-500 text-[11px] block">Desmarque se a publicação ainda não foi postada (será perguntada ao rodar).</span>
+                  </div>
+                </label>
+              )}
 
               <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
                 <input

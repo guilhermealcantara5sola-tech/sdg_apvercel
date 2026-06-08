@@ -1542,7 +1542,22 @@ def run_headless_campaign():
         input("\nPressione ENTER para fechar...")
         return
         
+    campaign_type = camp.get('campaign_type')
+    if not campaign_type:
+        # Fallback para compatibilidade anterior
+        if camp.get('post_url') and (camp.get('like') or camp.get('share')):
+            campaign_type = 'post_action'
+        elif camp.get('action') == 'follow':
+            campaign_type = 'follow'
+        else:
+            campaign_type = 'messages'
+            
     action = camp.get('action', 'message')
+    if campaign_type == 'follow':
+        action = 'follow'
+    elif campaign_type == 'messages' and action == 'follow':
+        action = 'message'
+        
     like = bool(camp.get('like', False))
     share = bool(camp.get('share', False))
     
@@ -1625,14 +1640,19 @@ def run_headless_campaign():
     print("\n[+] Configurações da Campanha:")
     print(f"    - Contas de disparo: {', '.join('@' + a['username'] for a in accounts)}")
     print(f"    - Destinatários: {len(leads)}")
-    print(f"    - Ação: {action}")
-    if post_url:
-        print(f"    - Publicação: {post_url}")
+    print(f"    - Tipo de Campanha: {campaign_type}")
+    if campaign_type == 'post_action':
+        if post_url:
+            print(f"    - Publicação: {post_url}")
         print(f"    - Curtir: {'Sim' if like else 'Não'}, Compartilhar: {'Sim' if share else 'Não'}")
-    if gemini_prompt:
-        print(f"    - IA (Gemini): Ativada (Prompt: '{gemini_prompt}')")
+    elif campaign_type == 'follow':
+        print(f"    - Ação: Apenas Seguir Usuários")
     else:
-        print(f"    - Mensagem Padrão: '{message}'")
+        print(f"    - Ação: {action}")
+        if gemini_prompt:
+            print(f"    - IA (Gemini): Ativada (Prompt: '{gemini_prompt}')")
+        else:
+            print(f"    - Mensagem Padrão: '{message}'")
     print(f"    - Delays: {min_delay}s a {max_delay}s (Rotação a cada {rotate_every} envios)")
     print("="*50)
     
@@ -1652,7 +1672,7 @@ def run_headless_campaign():
     })()
     
     try:
-        if post_url:
+        if campaign_type == 'post_action':
             run_post_action_thread(
                 accounts=accounts,
                 post_url=post_url,
@@ -1668,14 +1688,14 @@ def run_headless_campaign():
         else:
             run_bot_thread(
                 accounts=accounts,
-                message_template=message,
+                message_template=message if campaign_type != 'follow' else '',
                 leads=leads,
                 min_delay=min_delay,
                 max_delay=max_delay,
                 rotate_every=rotate_every,
-                action=action,
-                gemini_api_key=gemini_api_key,
-                gemini_prompt=gemini_prompt
+                action='follow' if campaign_type == 'follow' else action,
+                gemini_api_key=gemini_api_key if campaign_type != 'follow' else None,
+                gemini_prompt=gemini_prompt if campaign_type != 'follow' else None
             )
     except KeyboardInterrupt:
         print("\n[-] Interrompido pelo usuário.")
