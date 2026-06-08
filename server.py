@@ -1142,7 +1142,9 @@ def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, ma
                             bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] Comentário gerado: \"{text_to_send}\"")
                             
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Compartilhando post com @{lead_username}...")
-                    bot_instance.client.direct_media_share(media_id, [int(user_id)], text=text_to_send)
+                    bot_instance.client.direct_media_share(media_id, [int(user_id)])
+                    if text_to_send:
+                        bot_instance.client.direct_send(text_to_send, [int(user_id)])
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Post compartilhado com @{lead_username}")
                     
                     shares_sent_by_current_account += 1
