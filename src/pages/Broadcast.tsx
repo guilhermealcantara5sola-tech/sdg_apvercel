@@ -99,6 +99,7 @@ const Broadcast: React.FC = () => {
   const [includeGeminiKey, setIncludeGeminiKey] = useState(false);
   const [includePostUrl, setIncludePostUrl] = useState(true);
   const [includeLeads, setIncludeLeads] = useState(true);
+  const [activeTab, setActiveTab] = useState<'directs' | 'posts' | 'accounts' | 'config'>('directs');
 
   // Importar Campanha (.json)
   const handleImportCampaign = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -653,187 +654,187 @@ const Broadcast: React.FC = () => {
         </div>
       </div>
 
+      {/* Menu de Abas da Campanha */}
+      <div className="flex flex-wrap border-b border-gray-200 gap-6 mb-6">
+        <button
+          onClick={() => setActiveTab('directs')}
+          className={`pb-3 text-sm font-bold transition-all relative ${
+            activeTab === 'directs' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
+          }`}
+        >
+          Disparo de Directs
+        </button>
+        <button
+          onClick={() => setActiveTab('posts')}
+          className={`pb-3 text-sm font-bold transition-all relative ${
+            activeTab === 'posts' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
+          }`}
+        >
+          Impulsionar Posts
+        </button>
+        <button
+          onClick={() => setActiveTab('accounts')}
+          className={`pb-3 text-sm font-bold transition-all relative ${
+            activeTab === 'accounts' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
+          }`}
+        >
+          Contas do Instagram
+        </button>
+        <button
+          onClick={() => setActiveTab('config')}
+          className={`pb-3 text-sm font-bold transition-all relative ${
+            activeTab === 'config' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400 hover:text-gray-700'
+          }`}
+        >
+          Conexão & API
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Painel de Configurações */}
+        {/* Coluna da Esquerda: Configurações da Aba Ativa */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Sessão de Contas Rotativas */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b border-gray-50 pb-3">
-              <div className="flex items-center gap-2 text-purple-600 font-bold">
-                <RotateCw size={20} className={isRunning ? 'animate-spin' : ''} />
-                <h3>Contas de Disparo (Rotatividade)</h3>
-              </div>
-              <span className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded-full font-bold">
-                {accounts.length} conta(s) cadastradas
-              </span>
-            </div>
-
-            {/* Form de Adição */}
-            {!isRunning && (
-              <form onSubmit={handleAddAccount} className="bg-gray-50/50 p-4 rounded-xl space-y-3 border border-gray-100">
-                <div className="flex justify-between items-center">
-                  <p className="text-xs font-bold text-gray-600">Adicionar Nova Conta do Instagram</p>
-                  <label className="text-xs text-purple-600 font-bold hover:underline cursor-pointer flex items-center gap-1">
-                    <span>Importar Contas (.txt)</span>
-                    <input
-                      type="file"
-                      accept=".txt"
-                      className="hidden"
-                      onChange={handleImportAccountsFile}
-                    />
-                  </label>
+          {/* ABA: CONTAS DO INSTAGRAM */}
+          {activeTab === 'accounts' && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                <div className="flex items-center gap-2 text-purple-600 font-bold">
+                  <RotateCw size={20} className={isRunning ? 'animate-spin' : ''} />
+                  <h3>Contas de Disparo (Rotatividade)</h3>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
+                <span className="text-xs px-2 py-1 bg-purple-50 text-purple-600 rounded-full font-bold">
+                  {accounts.length} conta(s) cadastradas
+                </span>
+              </div>
+
+              {/* Form de Adição */}
+              {!isRunning && (
+                <form onSubmit={handleAddAccount} className="bg-gray-50/50 p-4 rounded-xl space-y-3 border border-gray-100">
+                  <div className="flex justify-between items-center">
+                    <p className="text-xs font-bold text-gray-600">Adicionar Nova Conta do Instagram</p>
+                    <label className="text-xs text-purple-600 font-bold hover:underline cursor-pointer flex items-center gap-1">
+                      <Upload size={12} />
+                      Carregar Lista de Contas (txt/csv)
+                      <input
+                        type="file"
+                        accept=".txt,.csv"
+                        onChange={handleImportAccountsFile}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       type="text"
-                      placeholder="Usuário (@conta)"
+                      placeholder="Nome do Usuário (@exemplo)"
                       value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value)}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                     />
-                  </div>
-                  <div className="flex gap-2">
                     <input
                       type="password"
-                      placeholder="Senha"
+                      placeholder="Senha do Instagram"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                     />
+                  </div>
+                  <div className="flex justify-end">
                     <button
                       type="submit"
-                      className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg text-sm flex items-center justify-center transition-colors shrink-0"
-                      title="Adicionar Conta"
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-1"
                     >
-                      <Plus size={20} />
+                      <Plus size={14} />
+                      Adicionar
                     </button>
                   </div>
-                </div>
-              </form>
-            )}
-
-            {/* Lista de Contas Cadastradas */}
-            <div className="space-y-2">
-              {accounts.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {accounts.map((acc, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        <span className="text-sm font-semibold text-gray-700">@{acc.username}</span>
-                      </div>
-                      {!isRunning && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveAccount(index)}
-                          className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Remover Conta"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-sm text-gray-400 border border-dashed border-gray-200 rounded-xl">
-                  Nenhuma conta cadastrada. Preencha os dados no formulário acima.
-                </div>
+                </form>
               )}
-            </div>
 
-            {/* Modo de Disparo e Frequência */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-                <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-gray-700 block">Modo de Envio</span>
-                  <span className="text-xs text-gray-500">Escolha se as contas enviam de forma sequencial ou paralela.</span>
-                </div>
-                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shrink-0">
-                  <button
-                    type="button"
-                    disabled={isRunning}
-                    onClick={() => setSendMode('sequential')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                      sendMode === 'sequential'
-                        ? 'bg-purple-600 text-white shadow-xs'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Sequencial
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isRunning}
-                    onClick={() => setSendMode('parallel')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
-                      sendMode === 'parallel'
-                        ? 'bg-purple-600 text-white shadow-xs'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    Paralelo (Mais Rápido)
-                  </button>
-                </div>
+              {/* Lista de Contas */}
+              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                {accounts.map((acc, index) => (
+                  <div key={index} className="flex items-center justify-between p-3.5 bg-gray-50/50 hover:bg-gray-50 rounded-xl border border-gray-100 transition-colors">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 text-xs font-bold">
+                        @{acc.username.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-gray-700 block">@{acc.username}</span>
+                        <span className="text-[10px] text-gray-400">Instagram Conectado</span>
+                      </div>
+                    </div>
+                    {!isRunning && (
+                      <button
+                        onClick={() => handleDeleteAccount(acc.username)}
+                        className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remover Conta"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+
+                {accounts.length === 0 && (
+                  <div className="text-center py-8 text-gray-400 text-sm italic">
+                    Nenhuma conta cadastrada. Adicione uma conta acima para iniciar!
+                  </div>
+                )}
               </div>
 
-              {sendMode === 'sequential' ? (
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-purple-50/40 p-4 rounded-xl border border-purple-100/30">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-purple-700 block">Frequência de Rotação</span>
-                    <span className="text-xs text-gray-500">Troca a conta de disparo automaticamente após enviar um número de DMs.</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <label className="text-xs text-gray-700">Mudar conta a cada</label>
+              {/* Configuração de Rotação */}
+              <div className="border-t border-gray-100 pt-4">
+                {sendMode === 'sequential' ? (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Rotacionar a cada</label>
                     <input
                       type="number"
                       min="1"
                       disabled={isRunning}
                       value={rotateEvery}
                       onChange={(e) => setRotateEvery(Math.max(1, Number(e.target.value)))}
-                      className="w-16 px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
+                      className="w-16 px-2 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
                     />
                     <label className="text-xs text-gray-700">envio(s)</label>
                   </div>
-                </div>
-              ) : (
-                <div className="bg-green-50/50 p-4 rounded-xl border border-green-100/30 text-green-800 text-xs leading-relaxed">
-                  <p className="font-bold flex items-center gap-1.5 text-green-700">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                    Envio Paralelo Ativado:
-                  </p>
-                  <p className="mt-0.5 text-gray-600">Todas as {accounts.length} contas cadastradas enviarão mensagens ao mesmo tempo, dividindo a lista de destinatários. Isso aumentará a velocidade de disparo em até {accounts.length}x!</p>
-                </div>
-              )}
+                ) : (
+                  <div className="bg-green-50/50 p-4 rounded-xl border border-green-100/30 text-green-800 text-xs leading-relaxed">
+                    <p className="font-bold flex items-center gap-1.5 text-green-700">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                      Envio Paralelo Ativado:
+                    </p>
+                    <p className="mt-0.5 text-gray-600">Todas as {accounts.length} contas cadastradas enviarão mensagens ao mesmo tempo, dividindo a lista de destinatários. Isso aumentará a velocidade de disparo em até {accounts.length}x!</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Mensagem e Delays */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 text-purple-600 font-bold mb-2">
-              <Send size={20} />
-              <h3>Mensagem e Controle</h3>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Ação a Executar</label>
-              <select
-                disabled={isRunning}
-                value={triggerAction}
-                onChange={(e) => setTriggerAction(e.target.value as any)}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
-              >
-                <option value="message">Apenas Enviar Mensagem (Direct)</option>
-                <option value="follow">Apenas Seguir Usuários</option>
-                <option value="both">Seguir e Enviar Mensagem (Direct)</option>
-              </select>
-            </div>
+          {/* ABA: DISPARO DE DIRECTS */}
+          {activeTab === 'directs' && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 text-purple-600 font-bold mb-2">
+                <Send size={20} />
+                <h3>Mensagem e Controle</h3>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Ação a Executar</label>
+                <select
+                  disabled={isRunning}
+                  value={triggerAction}
+                  onChange={(e) => setTriggerAction(e.target.value as any)}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold text-gray-700"
+                >
+                  <option value="message">Enviar Apenas Mensagem no Direct</option>
+                  <option value="follow">Apenas Seguir Usuário</option>
+                  <option value="both">Seguir e Enviar Mensagem</option>
+                </select>
+              </div>
 
-            {(triggerAction === 'message' || triggerAction === 'both') && (
-              <div className="space-y-4">
-                <div className="border border-purple-100 p-4 rounded-xl space-y-3 bg-purple-50/20">
+              {triggerAction !== 'follow' && (
+                <div className="border border-purple-100 p-4 rounded-xl bg-purple-50/20 space-y-3">
                   <label className="flex items-center gap-2 text-xs font-bold text-purple-700 cursor-pointer">
                     <input
                       type="checkbox"
@@ -842,83 +843,370 @@ const Broadcast: React.FC = () => {
                       onChange={(e) => setUseGemini(e.target.checked)}
                       className="rounded text-purple-600 focus:ring-purple-500"
                     />
-                    Personalizar mensagens com Inteligência Artificial (Google Gemini)
+                    Personalizar mensagem com Inteligência Artificial (Gemini)
                   </label>
 
                   {useGemini && (
-                    <div className="space-y-3 pt-2">
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Gemini API Key (Chave do Google)</label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                      <div className="md:col-span-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Gemini API Key</label>
                         <input
                           type="password"
-                          placeholder="Cole sua API Key do Gemini aqui..."
+                          placeholder="Cole sua API Key aqui..."
                           disabled={isRunning}
                           value={geminiApiKey}
                           onChange={(e) => setGeminiApiKey(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
                         />
                       </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Instrução para a IA (ex: "Fale sobre futebol com empolgação")</label>
+                      <div className="md:col-span-2">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Instrução/Prompt para a IA (ex: "Seja amigável")</label>
                         <textarea
                           rows={2}
-                          placeholder="O Gemini irá gerar um texto único para cada destinatário baseado nesta instrução."
+                          placeholder="Instrua o robô sobre como criar o texto de cada mensagem personalizada..."
                           disabled={isRunning}
                           value={geminiPrompt}
                           onChange={(e) => setGeminiPrompt(e.target.value)}
-                          className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
+                          className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
                         />
                       </div>
                     </div>
                   )}
                 </div>
+              )}
 
-                {!useGemini && (
+              {triggerAction !== 'follow' && !useGemini && (
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Mensagem Padrão (Sem IA)</label>
+                  <textarea
+                    rows={4}
+                    placeholder="Olá @username! Tudo bem? ..."
+                    disabled={isRunning}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-none"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Use <code className="bg-gray-100 px-1 py-0.5 rounded font-mono">@username</code> ou <code className="bg-gray-100 px-1 py-0.5 rounded font-mono">@fullname</code> para personalizar dinamicamente.</p>
+                </div>
+              )}
+
+              {/* Modo de Envio */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Modo de Distribuição</label>
+                  <select
+                    disabled={isRunning}
+                    value={sendMode}
+                    onChange={(e) => setSendMode(e.target.value as any)}
+                    className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold text-gray-700"
+                  >
+                    <option value="sequential">Rotativo (Uma conta de cada vez)</option>
+                    <option value="parallel">Paralelo (Todas as contas juntas)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Mínimo (segundos)</label>
+                  <input
+                    type="number"
+                    disabled={isRunning}
+                    value={minDelay}
+                    onChange={(e) => setMinDelay(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Máximo (segundos)</label>
+                  <input
+                    type="number"
+                    disabled={isRunning}
+                    value={maxDelay}
+                    onChange={(e) => setMaxDelay(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-amber-50 p-4 rounded-xl flex gap-3 text-amber-800 text-xs mt-4">
+                <AlertCircle size={20} className="flex-shrink-0" />
+                <div>
+                  <p className="font-bold">Dica de Segurança:</p>
+                  <p className="mt-0.5 leading-relaxed">Rotacionar entre várias contas ajuda muito a diluir o volume de disparos, porém manter delays seguros (como 60 a 120s) ainda é essencial para a saúde das contas.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ABA: IMPULSIONAR POSTS */}
+          {activeTab === 'posts' && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                <div className="flex items-center gap-2 text-purple-600 font-bold">
+                  <Heart size={20} className={isRunning ? 'animate-pulse' : ''} />
+                  <Share2 size={20} />
+                  <h3>Impulsionamento de Postagem (Curtir & Compartilhar)</h3>
+                </div>
+                <span className="text-xs px-2.5 py-1 bg-purple-50 text-purple-600 rounded-full font-bold">
+                  Ação em Massa
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 space-y-4">
                   <div>
-                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Texto da Mensagem</label>
-                    <textarea
-                      rows={4}
-                      placeholder="Olá @username! Vi que você acompanha nosso perfil... (Use com moderação)"
+                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Link da Publicação (Post ou Reel)</label>
+                    <input
+                      type="text"
+                      placeholder="https://www.instagram.com/p/C-XYZ... ou https://www.instagram.com/reel/C-XYZ..."
                       disabled={isRunning}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-y"
+                      value={postUrl}
+                      onChange={(e) => setPostUrl(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
                     />
                   </div>
-                )}
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Mínimo (segundos)</label>
-                <input
-                  type="number"
-                  disabled={isRunning}
-                  value={minDelay}
-                  onChange={(e) => setMinDelay(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Máximo (segundos)</label>
-                <input
-                  type="number"
-                  disabled={isRunning}
-                  value={maxDelay}
-                  onChange={(e) => setMaxDelay(Number(e.target.value))}
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
-                />
-              </div>
-            </div>
-            <div className="bg-amber-50 p-4 rounded-xl flex gap-3 text-amber-800 text-xs mt-4">
-              <AlertCircle size={20} className="flex-shrink-0" />
-              <div>
-                <p className="font-bold">Dica de Segurança:</p>
-                <p className="mt-0.5 leading-relaxed">Rotacionar entre várias contas ajuda muito a diluir o volume de disparos, porém manter delays seguros (como 60 a 120s) ainda é essencial para a saúde das contas.</p>
-              </div>
-            </div>
-          </div>
 
+                  <div className="flex flex-wrap gap-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={postLike}
+                        disabled={isRunning}
+                        onChange={(e) => setPostLike(e.target.checked)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      Curtir Publicação (com todas as contas)
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={postShare}
+                        disabled={isRunning}
+                        onChange={(e) => setPostShare(e.target.checked)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      Compartilhar no Direct (enviar para destinatários selecionados)
+                    </label>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Mín (s)</label>
+                      <input
+                        type="number"
+                        disabled={isRunning}
+                        value={postMinDelay}
+                        onChange={(e) => setPostMinDelay(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 text-center font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Máx (s)</label>
+                      <input
+                        type="number"
+                        disabled={isRunning}
+                        value={postMaxDelay}
+                        onChange={(e) => setPostMaxDelay(Number(e.target.value))}
+                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 text-center font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  {postShare && (
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Rotacionar Conta a cada</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          disabled={isRunning}
+                          value={postRotateEvery}
+                          onChange={(e) => setPostRotateEvery(Math.max(1, Number(e.target.value)))}
+                          className="w-16 px-2 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
+                        />
+                        <span className="text-xs text-gray-500">compartilhamento(s)</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {postShare && (
+                    <div className="border border-purple-100 p-4 rounded-xl space-y-3 bg-purple-50/20 mt-3">
+                      <label className="flex items-center gap-2 text-xs font-bold text-purple-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={useGemini}
+                          disabled={isRunning}
+                          onChange={(e) => setUseGemini(e.target.checked)}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        Personalizar comentário do Direct com IA (Gemini)
+                      </label>
+
+                      {useGemini && (
+                        <div className="space-y-3 pt-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Gemini API Key</label>
+                            <input
+                              type="password"
+                              placeholder="Cole sua API Key aqui..."
+                              disabled={isRunning}
+                              value={geminiApiKey}
+                              onChange={(e) => setGeminiApiKey(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Instrução para a IA (ex: "Elogie o post")</label>
+                            <textarea
+                              rows={2}
+                              placeholder="O Gemini irá gerar um texto único para acompanhar o compartilhamento."
+                              disabled={isRunning}
+                              value={geminiPrompt}
+                              onChange={(e) => setGeminiPrompt(e.target.value)}
+                              className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-gray-50">
+                <button
+                  type="button"
+                  onClick={isRunning ? handleStop : handlePostActionStart}
+                  disabled={botStatus === 'stopping'}
+                  className={`font-bold px-6 py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors w-full sm:w-auto ${
+                    isRunning
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20'
+                  }`}
+                >
+                  {isRunning ? (
+                    <>
+                      <Square size={16} />
+                      <span>PARAR EXECUÇÃO</span>
+                    </>
+                  ) : (
+                    <>
+                      <Heart size={16} />
+                      <span>INICIAR IMPULSIONAMENTO</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ABA: CONEXÃO & API */}
+          {activeTab === 'config' && (
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+                <div className="flex items-center gap-2 text-purple-600 font-bold">
+                  <Settings size={20} />
+                  <h3>Configurações de Conexão e Pareamento API</h3>
+                </div>
+                <span className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                  botStatus === 'offline' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'
+                }`}>
+                  {botStatus === 'offline' ? 'Desconectado' : 'Conectado / Pareado'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                    Endereço do Servidor local (API URL)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ex: http://localhost:5000"
+                    value={apiUrl}
+                    onChange={(e) => {
+                      setApiUrl(e.target.value);
+                      localStorage.setItem('api_base_url', e.target.value);
+                    }}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                    Chave de Pareamento (API Token)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Chave/token de segurança"
+                    value={apiToken}
+                    onChange={(e) => {
+                      setApiToken(e.target.value);
+                      localStorage.setItem('api_token', e.target.value);
+                    }}
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-purple-50/50 p-4 rounded-xl space-y-3 text-purple-900 border border-purple-100">
+                <h4 className="text-xs font-bold flex items-center gap-1.5">
+                  <AlertCircle size={16} />
+                  Dica de Pareamento & Conteúdo Inseguro (Mixed Content)
+                </h4>
+                <p className="text-xs leading-relaxed text-purple-700">
+                  Como este painel é servido via <strong>HTTPS</strong> seguro, o seu navegador pode bloquear requisições diretas para o IP local do seu computador (HTTP) devido a políticas de segurança de conteúdo misto.
+                </p>
+                <div className="text-xs space-y-1.5 pl-4 text-purple-800">
+                  <div>• <strong>Método Headless:</strong> Utilize o modo portátil (salvando o arquivo <code className="bg-purple-100/80 px-1 py-0.5 rounded font-mono text-[11px]">campanha.json</code> e rodando <code className="bg-purple-100/80 px-1 py-0.5 rounded font-mono text-[11px]">iniciar_campanha.bat</code>) para contornar totalmente o navegador.</div>
+                  <div>• <strong>Ngrok Ativo:</strong> Inicie o Ngrok (<code className="bg-purple-100/80 px-1 py-0.5 rounded font-mono text-[11px]">ngrok http 5000</code>) antes do servidor para que ele gere conexões HTTPS seguras e o painel conecte automaticamente.</div>
+                  <div>• <strong>Liberação Manual:</strong> Clique no cadeado na barra de endereço, vá em "Configurações do site" e altere a opção "Conteúdo inseguro" para "Permitir".</div>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-50 pt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.search = `?api_url=${encodeURIComponent(apiUrl)}&api_token=${encodeURIComponent(apiToken)}`;
+                  }}
+                  className="text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 px-4 py-2 rounded-xl transition-all"
+                >
+                  Forçar Pareamento na URL
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`${apiUrl}/api/health`, {
+                        headers: { 'X-API-Key': apiToken }
+                      });
+                      if (res.ok) {
+                        alert('Conexão ativa! Servidor Python respondendo corretamente.');
+                      } else {
+                        alert('Servidor respondeu com erro. Verifique a chave de pareamento.');
+                      }
+                    } catch (err: any) {
+                      alert(`Não foi possível conectar ao servidor: ${err.message}`);
+                    }
+                  }}
+                  className="text-xs font-bold text-gray-600 bg-gray-50 hover:bg-gray-100 px-4 py-2 rounded-xl transition-all"
+                >
+                  Testar Conexão Local
+                </button>
+              </div>
+            </div>
+          )}
+          
+        </div>
+
+        {/* Coluna da Direita: Terminal & Destinatários */}
+        <div className="space-y-6">
+          
           {/* Logs / Console em Tempo Real */}
           <div className="bg-gray-900 rounded-2xl p-6 shadow-lg border border-gray-800 space-y-4">
             <div className="flex items-center justify-between border-b border-gray-800 pb-3">
@@ -946,8 +1234,8 @@ const Broadcast: React.FC = () => {
             </div>
 
             {/* Ações e Progresso */}
-            <div className="border-t border-gray-800 pt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex-1 w-full">
+            <div className="border-t border-gray-800 pt-4 flex flex-col justify-between gap-4">
+              <div className="w-full">
                 {isRunning && (
                   <div className="space-y-1">
                     <div className="flex justify-between text-xs text-gray-400 font-mono">
@@ -964,11 +1252,11 @@ const Broadcast: React.FC = () => {
                 )}
               </div>
               
-              <div className="flex gap-3 w-full sm:w-auto">
+              <div className="flex gap-3 w-full">
                 <button
                   onClick={isRunning ? handleStop : handleStart}
                   disabled={botStatus === 'stopping'}
-                  className={`flex-1 sm:flex-none font-bold px-6 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors ${
+                  className={`w-full font-bold px-6 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors ${
                     isRunning 
                       ? 'bg-red-600 hover:bg-red-700 text-white disabled:opacity-55' 
                       : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20'
@@ -979,359 +1267,209 @@ const Broadcast: React.FC = () => {
                   ) : (
                     <Play size={16} key="start-icon" />
                   )}
-                  {isRunning ? 'PARAR' : 'INICIAR DISPARO'}
+                  {isRunning ? 'PARAR' : 'INICIAR DISPARO DIRECT'}
                 </button>
               </div>
             </div>
           </div>
-        </div>
 
-
-        {/* Seleção de Leads (Direita) */}
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-[760px]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2 text-purple-600 font-bold">
-              <Users size={20} />
-              <h3>Lista de Destinatários</h3>
+          {/* Seleção de Leads (Direita) */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-[600px]">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-purple-600 font-bold">
+                <Users size={20} />
+                <h3>Lista de Destinatários</h3>
+              </div>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                disabled={isRunning}
+                className={`p-2 rounded-lg border transition-all ${
+                  showFilters || genderFilter !== 'Todos' || ageFilter !== 'Todos' || cityFilter !== 'Todas' || followedBackFilter !== 'Todos'
+                    ? 'bg-purple-50 border-purple-200 text-purple-600'
+                    : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                }`}
+                title="Filtros Demográficos"
+              >
+                <Filter size={18} />
+              </button>
             </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              disabled={isRunning}
-              className={`p-2 rounded-lg border transition-all ${
-                showFilters || genderFilter !== 'Todos' || ageFilter !== 'Todos' || cityFilter !== 'Todas' || followedBackFilter !== 'Todos'
-                  ? 'bg-purple-50 border-purple-200 text-purple-600'
-                  : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-              }`}
-              title="Filtros Demográficos"
-            >
-              <Filter size={18} />
-            </button>
-          </div>
 
-          {/* Painel de Filtros Demográficos */}
-          {showFilters && (
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-3 space-y-3 animate-fadeIn">
-              <div className="flex justify-between items-center border-b border-gray-200 pb-1">
-                <span className="text-xs font-bold text-gray-600">Filtros Demográficos</span>
-                <button 
-                  onClick={() => {
-                    setGenderFilter('Todos');
-                    setAgeFilter('Todos');
-                    setCityFilter('Todas');
-                    setFollowedBackFilter('Todos');
-                  }}
-                  className="text-[10px] text-purple-600 font-bold hover:underline"
-                >
-                  Limpar Filtros
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Gênero</label>
-                  <select
-                    value={genderFilter}
-                    onChange={(e) => setGenderFilter(e.target.value)}
-                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
+            {/* Painel de Filtros Demográficos */}
+            {showFilters && (
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-3 space-y-3 animate-fadeIn">
+                <div className="flex justify-between items-center border-b border-gray-200 pb-1">
+                  <span className="text-xs font-bold text-gray-700">Filtros</span>
+                  <button 
+                    onClick={() => {
+                      setGenderFilter('Todos');
+                      setAgeFilter('Todos');
+                      setCityFilter('Todas');
+                      setFollowedBackFilter('Todos');
+                    }}
+                    className="text-[10px] text-purple-600 hover:underline font-bold"
                   >
-                    <option value="Todos">Todos</option>
-                    <option value="Mulheres">Mulheres</option>
-                    <option value="Homens">Homens</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Idade</label>
-                  <select
-                    value={ageFilter}
-                    onChange={(e) => setAgeFilter(e.target.value)}
-                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
-                  >
-                    <option value="Todos">Todos</option>
-                    <option value="Criança">Criança (13-17)</option>
-                    <option value="Jovem">Jovem (18-24)</option>
-                    <option value="Adulto">Adulto (25-54)</option>
-                    <option value="Idoso">Idoso (55+)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Cidade</label>
-                  <select
-                    value={cityFilter}
-                    onChange={(e) => setCityFilter(e.target.value)}
-                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
-                  >
-                    {citiesList.map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-gray-400 uppercase block mb-0.5">Segue de Volta?</label>
-                  <select
-                    value={followedBackFilter}
-                    onChange={(e) => setFollowedBackFilter(e.target.value)}
-                    className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:outline-none"
-                  >
-                    <option value="Todos">Todos</option>
-                    <option value="Sim">Sim</option>
-                    <option value="Não">Não</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Busca */}
-          <input
-            type="text"
-            placeholder="Pesquisar seguidor..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            disabled={isRunning}
-            className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 mb-3 disabled:opacity-60"
-          />
-
-          {/* Selecionar Todos */}
-          <div className="flex justify-between items-center mb-3">
-            <span className="text-[11px] font-bold text-gray-400 uppercase">
-              {filteredFollowers.length} filtrados • {selectedLeads.length} selecionados
-            </span>
-            <button
-              onClick={selectAllFiltered}
-              disabled={isRunning}
-              className="text-xs text-purple-600 font-bold hover:underline disabled:opacity-60"
-            >
-              Marcar/Desmarcar Filtrados
-            </button>
-          </div>
-
-          {/* Lista de Seguidores */}
-          <div className="flex-1 overflow-y-auto space-y-1.5 border border-gray-50 rounded-xl p-2 bg-gray-50/20 mb-4">
-            {loadingLeads ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-purple-600"></div>
-              </div>
-            ) : filteredFollowers.length > 0 ? (
-              filteredFollowers.map((follower) => {
-                const isSel = selectedLeads.includes(follower.username);
-                return (
-                  <button
-                    key={follower.username}
-                    disabled={isRunning}
-                    onClick={() => toggleLeadSelection(follower.username)}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg border text-sm text-left transition-all ${
-                      isSel 
-                        ? 'bg-purple-50/50 border-purple-200 text-purple-700 font-medium' 
-                        : 'bg-white border-gray-100 text-gray-700 hover:bg-gray-50'
-                    } disabled:opacity-75 disabled:cursor-not-allowed`}
-                  >
-                    <div className="flex flex-col space-y-0.5">
-                      <span className="font-semibold">@{follower.username}</span>
-                      <span className="text-[10px] text-gray-400">
-                        {follower.gender === 'Mulheres' ? 'Feminino' : 'Masculino'} • {follower.age_group} • {follower.city}
-                      </span>
-                    </div>
-                    <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                      isSel ? 'bg-purple-600 border-purple-600 text-white' : 'border-gray-300 bg-white'
-                    } shrink-0`}>
-                      {isSel && <Check size={14} />}
-                    </div>
+                    Limpar Filtros
                   </button>
-                );
-              })
-            ) : (
-              <div className="flex items-center justify-center h-full text-xs text-gray-400">
-                Nenhum seguidor corresponde aos critérios
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <label className="text-[10px] text-gray-500 block">Gênero</label>
+                    <select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
+                      <option>Todos</option>
+                      <option>Masculino</option>
+                      <option>Feminino</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block">Idade</label>
+                    <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
+                      <option>Todos</option>
+                      <option>Jovem (&lt;25)</option>
+                      <option>Adulto (25-45)</option>
+                      <option>Sênior (&gt;45)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block">Cidade</label>
+                    <select value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
+                      {citiesList.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 block">Segue de volta?</label>
+                    <select value={followedBackFilter} onChange={(e) => setFollowedBackFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
+                      <option>Todos</option>
+                      <option>Sim</option>
+                      <option>Não</option>
+                    </select>
+                  </div>
+                </div>
               </div>
             )}
-          </div>
 
-          {/* Entrada Manual de Leads */}
-          <div className="space-y-1">
-            <div className="flex justify-between items-center">
-              <label className="text-xs font-bold text-gray-500 uppercase block">Adicionar Leads Manuais (vírgula)</label>
-              <label className="text-xs text-purple-600 font-bold hover:underline cursor-pointer flex items-center gap-1">
-                <span>Carregar arquivo (.txt)</span>
-                <input
-                  type="file"
-                  accept=".txt"
-                  className="hidden"
-                  onChange={handleImportLeadsFile}
-                  disabled={isRunning}
-                />
-              </label>
-            </div>
-            <input
-              type="text"
-              placeholder="ex: neymarjr, casimiro, @anitta"
-              disabled={isRunning}
-              value={manualLeads}
-              onChange={(e) => setManualLeads(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Impulsionamento de Postagem */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
-        <div className="flex items-center justify-between border-b border-gray-50 pb-3">
-          <div className="flex items-center gap-2 text-purple-600 font-bold">
-            <Heart size={20} className={isRunning ? 'animate-pulse' : ''} />
-            <Share2 size={20} />
-            <h3>Impulsionamento de Postagem (Curtir & Compartilhar)</h3>
-          </div>
-          <span className="text-xs px-2.5 py-1 bg-purple-50 text-purple-600 rounded-full font-bold">
-            Novo recurso
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 space-y-4">
-            <div>
-              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Link da Publicação (Post ou Reel)</label>
+            <div className="relative mb-3">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                <Filter size={16} />
+              </span>
               <input
                 type="text"
-                placeholder="https://www.instagram.com/p/C-XYZ... ou https://www.instagram.com/reel/C-XYZ..."
+                placeholder="Pesquisar seguidores..."
                 disabled={isRunning}
-                value={postUrl}
-                onChange={(e) => setPostUrl(e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
               />
             </div>
 
-            <div className="flex flex-wrap gap-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={postLike}
-                  disabled={isRunning}
-                  onChange={(e) => setPostLike(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500"
-                />
-                Curtir Publicação (com todas as contas)
-              </label>
-
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={postShare}
-                  disabled={isRunning}
-                  onChange={(e) => setPostShare(e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500"
-                />
-                Compartilhar no Direct (enviar para destinatários selecionados)
-              </label>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Mín (s)</label>
-                <input
-                  type="number"
-                  disabled={isRunning}
-                  value={postMinDelay}
-                  onChange={(e) => setPostMinDelay(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 text-center font-semibold"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Máx (s)</label>
-                <input
-                  type="number"
-                  disabled={isRunning}
-                  value={postMaxDelay}
-                  onChange={(e) => setPostMaxDelay(Number(e.target.value))}
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 text-center font-semibold"
-                />
-              </div>
-            </div>
-
-            {postShare && (
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Rotacionar Conta a cada</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    disabled={isRunning}
-                    value={postRotateEvery}
-                    onChange={(e) => setPostRotateEvery(Math.max(1, Number(e.target.value)))}
-                    className="w-16 px-2 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
-                  />
-                  <span className="text-xs text-gray-500">compartilhamento(s)</span>
+            <div className="flex-1 overflow-y-auto mb-3 border border-gray-50 rounded-xl min-h-0 bg-gray-50/20">
+              {loadingLeads ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-2 py-8">
+                  <RotateCw size={24} className="animate-spin text-purple-500" />
+                  <span className="text-xs">Carregando base de seguidores...</span>
                 </div>
-              </div>
-            )}
-
-            {postShare && (
-              <div className="border border-purple-100 p-4 rounded-xl space-y-3 bg-purple-50/20 mt-3">
-                <label className="flex items-center gap-2 text-xs font-bold text-purple-700 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={useGemini}
-                    disabled={isRunning}
-                    onChange={(e) => setUseGemini(e.target.checked)}
-                    className="rounded text-purple-600 focus:ring-purple-500"
-                  />
-                  Personalizar comentário do Direct com IA (Gemini)
-                </label>
-
-                {useGemini && (
-                  <div className="space-y-3 pt-2">
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Gemini API Key (Chave do Google)</label>
+              ) : (
+                <div className="divide-y divide-gray-50 p-2">
+                  {filteredFollowers.map((follower) => (
+                    <label key={follower.username} className="flex items-center gap-3 py-2 px-1 hover:bg-purple-50/20 rounded-lg cursor-pointer transition-colors text-xs">
                       <input
-                        type="password"
-                        placeholder="Cole sua API Key do Gemini aqui..."
+                        type="checkbox"
                         disabled={isRunning}
-                        value={geminiApiKey}
-                        onChange={(e) => setGeminiApiKey(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        checked={selectedLeads.includes(follower.username)}
+                        onChange={() => handleToggleLead(follower.username)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
                       />
+                      <div className="flex-1 min-w-0">
+                        <span className="font-semibold text-gray-700 block truncate">@{follower.username}</span>
+                        {follower.full_name && (
+                          <span className="text-[10px] text-gray-400 block truncate">{follower.full_name}</span>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        {follower.city && follower.city !== 'Outras' && (
+                          <span className="text-[8px] bg-purple-50 text-purple-600 px-1 py-0.5 rounded block">{follower.city}</span>
+                        )}
+                        {follower.gender && (
+                          <span className="text-[8px] text-gray-400 block mt-0.5">{follower.gender}</span>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                  {filteredFollowers.length === 0 && (
+                    <div className="text-center py-12 text-gray-400 text-xs italic">
+                      Nenhum seguidor localizado com estes filtros.
                     </div>
-                    <div>
-                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Instrução para a IA (ex: "Elogie o post")</label>
-                      <textarea
-                        rows={2}
-                        placeholder="O Gemini irá gerar um texto único para acompanhar o compartilhamento."
-                        disabled={isRunning}
-                        value={geminiPrompt}
-                        onChange={(e) => setGeminiPrompt(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+                  )}
+                </div>
+              )}
+            </div>
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-gray-50">
-          <button
-            type="button"
-            onClick={isRunning ? handleStop : handlePostActionStart}
-            disabled={botStatus === 'stopping'}
-            className={`font-bold px-6 py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors w-full sm:w-auto ${
-              isRunning
-                ? 'bg-red-600 hover:bg-red-700 text-white'
-                : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20'
-            }`}
-          >
-            {isRunning ? (
-              <>
-                <Square size={16} />
-                <span>PARAR EXECUÇÃO</span>
-              </>
-            ) : (
-              <>
-                <Heart size={16} />
-                <span>INICIAR IMPULSIONAMENTO</span>
-              </>
-            )}
-          </button>
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-500">Destinatários selecionados:</span>
+                <span className="font-bold text-purple-600">
+                  {Array.from(new Set([...selectedLeads, ...manualLeads.split(',').map(l => l.trim()).filter(l => l)])).length} usuário(s)
+                </span>
+              </div>
+
+              <div className="flex justify-between gap-2">
+                <button
+                  type="button"
+                  disabled={isRunning || loadingLeads}
+                  onClick={() => {
+                    const allUsernames = filteredFollowers.map(f => f.username);
+                    setSelectedLeads(prev => {
+                      const otherSelected = prev.filter(item => !allUsernames.includes(item));
+                      const isAllSelected = allUsernames.every(item => prev.includes(item));
+                      if (isAllSelected) {
+                        return otherSelected;
+                      } else {
+                        return [...otherSelected, ...allUsernames];
+                      }
+                    });
+                  }}
+                  className="flex-1 py-1.5 border border-purple-200 text-purple-600 hover:bg-purple-50 rounded-lg text-[10px] font-bold transition-all text-center"
+                >
+                  {filteredFollowers.every(f => selectedLeads.includes(f.username)) && filteredFollowers.length > 0
+                    ? 'Desmarcar Filtro'
+                    : 'Selecionar Filtro'}
+                </button>
+                <button
+                  type="button"
+                  disabled={isRunning}
+                  onClick={() => setSelectedLeads([])}
+                  className="py-1.5 px-3 border border-gray-200 text-gray-500 hover:bg-gray-50 rounded-lg text-[10px] font-bold transition-all"
+                >
+                  Limpar
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-gray-50">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-bold text-gray-500 uppercase block">Adicionar Arrobas Manualmente (opcional)</label>
+                  <label className="text-[10px] text-purple-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5">
+                    <Upload size={10} />
+                    Importar Leads
+                    <input
+                      type="file"
+                      accept=".txt,.csv"
+                      onChange={handleImportLeadsFile}
+                      disabled={isRunning}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  placeholder="ex: neymarjr, casimiro, @anitta"
+                  disabled={isRunning}
+                  value={manualLeads}
+                  onChange={(e) => setManualLeads(e.target.value)}
+                  className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                />
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
 
