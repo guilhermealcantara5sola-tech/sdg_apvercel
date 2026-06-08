@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2 } from 'lucide-react';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2, Save, Upload } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -92,6 +92,97 @@ const Broadcast: React.FC = () => {
   }, [geminiApiKey]);
 
   const terminalRef = useRef<HTMLDivElement>(null);
+
+  // Configurações do Modal de Exportar Campanha
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [includeAccounts, setIncludeAccounts] = useState(true);
+  const [includeGeminiKey, setIncludeGeminiKey] = useState(false);
+  const [includePostUrl, setIncludePostUrl] = useState(true);
+  const [includeLeads, setIncludeLeads] = useState(true);
+
+  // Importar Campanha (.json)
+  const handleImportCampaign = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const camp = JSON.parse(e.target?.result as string);
+        if (!camp) return;
+
+        if (Array.isArray(camp.accounts)) {
+          setAccounts(camp.accounts);
+          try {
+            localStorage.setItem('broadcast_accounts', JSON.stringify(camp.accounts));
+          } catch (err) {
+            console.warn(err);
+          }
+        }
+        if (typeof camp.message === 'string') setMessage(camp.message);
+        if (typeof camp.min_delay === 'number') setMinDelay(camp.min_delay);
+        if (typeof camp.max_delay === 'number') setMaxDelay(camp.max_delay);
+        if (typeof camp.rotate_every === 'number') setRotateEvery(camp.rotate_every);
+        if (typeof camp.action === 'string') setTriggerAction(camp.action);
+        if (typeof camp.use_gemini === 'boolean') setUseGemini(camp.use_gemini);
+        if (typeof camp.gemini_api_key === 'string') setGeminiApiKey(camp.gemini_api_key);
+        if (typeof camp.gemini_prompt === 'string') setGeminiPrompt(camp.gemini_prompt);
+        if (typeof camp.post_url === 'string') setPostUrl(camp.post_url);
+        if (typeof camp.like === 'boolean') setPostLike(camp.like);
+        if (typeof camp.share === 'boolean') setPostShare(camp.share);
+        if (typeof camp.post_min_delay === 'number') setPostMinDelay(camp.post_min_delay);
+        if (typeof camp.post_max_delay === 'number') setPostMaxDelay(camp.post_max_delay);
+        if (typeof camp.post_rotate_every === 'number') setPostRotateEvery(camp.post_rotate_every);
+        if (typeof camp.send_mode === 'string') setSendMode(camp.send_mode);
+
+        if (Array.isArray(camp.leads)) {
+          setManualLeads(camp.leads.join(', '));
+        }
+
+        alert('Campanha carregada com sucesso no painel!');
+      } catch (err: any) {
+        alert(`Erro ao ler arquivo de campanha: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Exportar Campanha (.json)
+  const handleExportCampaign = () => {
+    const parsedManual = manualLeads.split(',').map(l => l.trim()).filter(l => l);
+    const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
+
+    const campData: any = {
+      accounts: includeAccounts ? accounts : [],
+      message: message,
+      min_delay: minDelay,
+      max_delay: maxDelay,
+      rotate_every: rotateEvery,
+      action: triggerAction,
+      use_gemini: useGemini,
+      gemini_api_key: includeGeminiKey ? geminiApiKey : "",
+      gemini_prompt: geminiPrompt,
+      post_url: includePostUrl ? postUrl : "",
+      like: postLike,
+      share: postShare,
+      post_min_delay: postMinDelay,
+      post_max_delay: postMaxDelay,
+      post_rotate_every: postRotateEvery,
+      send_mode: sendMode,
+      leads: includeLeads ? allLeads : []
+    };
+
+    const blob = new Blob([JSON.stringify(campData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'campanha.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setShowSaveModal(false);
+  };
 
   // Carregar seguidores reais
   useEffect(() => {
@@ -534,6 +625,23 @@ const Broadcast: React.FC = () => {
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
+          <label className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow cursor-pointer">
+            <Upload size={16} />
+            Carregar Campanha (.json)
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportCampaign}
+              className="hidden"
+            />
+          </label>
+          <button
+            onClick={() => setShowSaveModal(true)}
+            className="flex items-center gap-2 text-sm font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow"
+          >
+            <Save size={16} />
+            Salvar Campanha (.json)
+          </button>
           <a
             href="/server.exe"
             download="server.exe"
@@ -1226,6 +1334,96 @@ const Broadcast: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Modal de Exportação de Campanha */}
+      {showSaveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-2xl max-w-md w-full overflow-hidden p-6 space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                <Save className="text-emerald-600" size={20} />
+                Exportar Campanha Portátil
+              </h3>
+              <p className="text-gray-500 text-xs mt-1">
+                Escolha quais informações deseja salvar no arquivo <code className="bg-gray-100 px-1 py-0.5 rounded font-mono text-[11px]">campanha.json</code>.
+                Variáveis não incluídas serão perguntadas no terminal ao iniciar o servidor portátil.
+              </p>
+            </div>
+
+            <div className="space-y-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100 text-sm">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeAccounts}
+                  onChange={(e) => setIncludeAccounts(e.target.checked)}
+                  className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                />
+                <div>
+                  <span className="font-semibold text-gray-700 block text-xs">Incluir Contas do Instagram</span>
+                  <span className="text-gray-500 text-[11px] block">Salva as contas e senhas atuais para evitar digitação.</span>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
+                <input
+                  type="checkbox"
+                  checked={includeGeminiKey}
+                  onChange={(e) => setIncludeGeminiKey(e.target.checked)}
+                  className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                />
+                <div>
+                  <span className="font-semibold text-gray-700 block text-xs">Incluir Chave API do Gemini</span>
+                  <span className="text-gray-500 text-[11px] block">Desmarque para digitar a chave no terminal de forma mais segura.</span>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
+                <input
+                  type="checkbox"
+                  checked={includePostUrl}
+                  onChange={(e) => setIncludePostUrl(e.target.checked)}
+                  className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                />
+                <div>
+                  <span className="font-semibold text-gray-700 block text-xs">Incluir Link da Publicação</span>
+                  <span className="text-gray-500 text-[11px] block">Desmarque se a publicação ainda não foi postada (será perguntada ao rodar).</span>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer select-none border-t border-gray-100 pt-3">
+                <input
+                  type="checkbox"
+                  checked={includeLeads}
+                  onChange={(e) => setIncludeLeads(e.target.checked)}
+                  className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                />
+                <div>
+                  <span className="font-semibold text-gray-700 block text-xs">Incluir Lista de Destinatários</span>
+                  <span className="text-gray-500 text-[11px] block">Salva os leads atuais no arquivo de campanha.</span>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSaveModal(false)}
+                className="px-4 py-2 border border-gray-200 text-gray-500 hover:bg-gray-50 rounded-xl text-xs font-bold transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCampaign}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all flex items-center gap-1.5"
+              >
+                <Download size={14} />
+                Baixar campanha.json
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

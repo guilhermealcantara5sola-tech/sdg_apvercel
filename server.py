@@ -1522,7 +1522,183 @@ def sync_data():
         print(f"Erro na sincronização em tempo real: {e}")
         return jsonify({"error": f"Falha na sincronização: {str(e)}"}), 500
 
+def run_headless_campaign():
+    print("\n" + "="*50)
+    print("      EXECUTOR DE CAMPANHA PORTÁTIL (HEADLESS)")
+    print("="*50)
+    
+    config_path = os.path.join(BASE_DIR, 'campanha.json')
+    if not os.path.exists(config_path):
+        print(f"\n[-] Erro: O arquivo '{config_path}' não foi encontrado.")
+        print("[*] Salve a campanha como 'campanha.json' no pen drive/pasta junto do programa.")
+        input("\nPressione ENTER para fechar...")
+        return
+        
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            camp = json.load(f)
+    except Exception as e:
+        print(f"\n[-] Erro ao ler '{config_path}': {e}")
+        input("\nPressione ENTER para fechar...")
+        return
+        
+    action = camp.get('action', 'message')
+    like = bool(camp.get('like', False))
+    share = bool(camp.get('share', False))
+    
+    # 1. Resolver contas
+    accounts = camp.get('accounts', [])
+    if not accounts:
+        # Tenta carregar do accounts.json local
+        saved_accounts = load_saved_accounts()
+        accounts = [{"username": u, "password": p} for u, p in saved_accounts.items()]
+        
+    if not accounts:
+        print("\n[-] Nenhuma conta cadastrada em 'campanha.json' ou 'accounts.json'.")
+        username = input("[?] Digite o usuário do Instagram (@conta): ").strip().replace("@", "")
+        password = input("[?] Digite a senha: ").strip()
+        if not username or not password:
+            print("[-] Dados inválidos. Cancelando.")
+            input("\nPressione ENTER para fechar...")
+            return
+        accounts = [{"username": username, "password": password}]
+        
+    # 2. Resolver destinatários (Leads)
+    leads = camp.get('leads', [])
+    if not leads:
+        # Tenta ler de leads.txt no mesmo diretório
+        leads_path = os.path.join(BASE_DIR, 'leads.txt')
+        if os.path.exists(leads_path):
+            try:
+                with open(leads_path, 'r', encoding='utf-8') as lf:
+                    leads = [line.strip() for line in lf if line.strip()]
+                print(f"\n[+] Carregados {len(leads)} destinatários do arquivo 'leads.txt'.")
+            except Exception as e:
+                print(f"[-] Erro ao ler 'leads.txt': {e}")
+                
+    # Precisa de leads se a ação enviar mensagem ou se for compartilhar post
+    needs_leads = (action in ('message', 'both')) or share
+    if needs_leads and not leads:
+        print("\n[-] Nenhum destinatário carregado de 'campanha.json' ou 'leads.txt'.")
+        leads_input = input("[?] Digite os arrobas dos destinatários (separados por vírgula): ")
+        leads = [l.strip().replace("@", "") for l in leads_input.split(",") if l.strip()]
+        if not leads:
+            print("[-] Nenhum destinatário fornecido. Cancelando.")
+            input("\nPressione ENTER para fechar...")
+            return
+
+    # 3. Resolver Gemini
+    use_gemini = camp.get('use_gemini', False)
+    gemini_api_key = camp.get('gemini_api_key')
+    gemini_prompt = camp.get('gemini_prompt', '')
+    
+    # Se usar Gemini ou prompt configurado, e faltar chave/prompt, pergunta no console
+    if use_gemini or gemini_prompt:
+        if not gemini_api_key:
+            gemini_api_key = input("\n[?] Digite a API Key do Gemini (IA): ").strip()
+        if not gemini_prompt:
+            gemini_prompt = input("[?] Digite a instrução/prompt para a IA: ").strip()
+        
+    # 4. Resolver Mensagem Padrão (se não usar IA)
+    message = camp.get('message', '')
+    if action in ('message', 'both') and not message and not gemini_prompt and not use_gemini:
+        message = input("\n[?] Digite o texto da mensagem padrão: ").strip()
+        if not message:
+            print("[-] Mensagem padrão obrigatória. Cancelando.")
+            input("\nPressione ENTER para fechar...")
+            return
+            
+    # 5. Resolver URL do Post (caso seja curtir ou compartilhar)
+    post_url = camp.get('post_url', '')
+    if (like or share) and not post_url:
+        post_url = input("\n[?] Digite o link da publicação do Instagram (Post ou Reel): ").strip()
+        if not post_url:
+            print("[-] Link da publicação obrigatório para curtir/compartilhar. Cancelando.")
+            input("\nPressione ENTER para fechar...")
+            return
+
+    # Delays
+    min_delay = int(camp.get('min_delay', 5))
+    max_delay = int(camp.get('max_delay', 15))
+    rotate_every = int(camp.get('rotate_every', 1))
+    
+    print("\n[+] Configurações da Campanha:")
+    print(f"    - Contas de disparo: {', '.join('@' + a['username'] for a in accounts)}")
+    print(f"    - Destinatários: {len(leads)}")
+    print(f"    - Ação: {action}")
+    if post_url:
+        print(f"    - Publicação: {post_url}")
+        print(f"    - Curtir: {'Sim' if like else 'Não'}, Compartilhar: {'Sim' if share else 'Não'}")
+    if gemini_prompt:
+        print(f"    - IA (Gemini): Ativada (Prompt: '{gemini_prompt}')")
+    else:
+        print(f"    - Mensagem Padrão: '{message}'")
+    print(f"    - Delays: {min_delay}s a {max_delay}s (Rotação a cada {rotate_every} envios)")
+    print("="*50)
+    
+    confirm = input("\n[?] Deseja iniciar os disparos no pen drive agora? (s/n): ").strip().lower()
+    if confirm != 's':
+        print("[-] Operação cancelada.")
+        input("\nPressione ENTER para fechar...")
+        return
+        
+    print("\n[*] Iniciando disparos... (Pressione Ctrl+C para interromper no terminal)\n")
+    
+    # Redireciona os logs diretamente para o stdout da janela do terminal
+    global bot_logs
+    bot_logs = type('StdoutLogs', (object,), {
+        'append': lambda self, msg: print(msg),
+        'clear': lambda self: None
+    })()
+    
+    try:
+        if post_url:
+            run_post_action_thread(
+                accounts=accounts,
+                post_url=post_url,
+                like=like,
+                share=share,
+                leads=leads,
+                min_delay=min_delay,
+                max_delay=max_delay,
+                rotate_every=rotate_every,
+                gemini_api_key=gemini_api_key,
+                gemini_prompt=gemini_prompt
+            )
+        else:
+            run_bot_thread(
+                accounts=accounts,
+                message_template=message,
+                leads=leads,
+                min_delay=min_delay,
+                max_delay=max_delay,
+                rotate_every=rotate_every,
+                action=action,
+                gemini_api_key=gemini_api_key,
+                gemini_prompt=gemini_prompt
+            )
+    except KeyboardInterrupt:
+        print("\n[-] Interrompido pelo usuário.")
+        
+    input("\n[OK] Automação finalizada. Pressione ENTER para fechar...")
+
 if __name__ == '__main__':
+    # Cria o arquivo iniciar_campanha.bat se ele não existir
+    bat_path = os.path.join(BASE_DIR, 'iniciar_campanha.bat')
+    if not os.path.exists(bat_path):
+        try:
+            with open(bat_path, 'w', encoding='utf-8') as bat_file:
+                bat_file.write("@echo off\n")
+                bat_file.write("server.exe --headless\n")
+                bat_file.write("pause\n")
+        except Exception as e:
+            print(f"Erro ao criar iniciar_campanha.bat: {e}")
+
+    # Verifica se foi solicitado execução headless
+    if len(sys.argv) > 1 and sys.argv[1] == "--headless":
+        run_headless_campaign()
+        sys.exit(0)
+        
     # Banner visual de inicialização
     print("\n" + "="*70)
     print("        INICIANDO SERVIDOR DE AUTOMAÇÃO (THENPERSON 2026)")
