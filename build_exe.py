@@ -62,55 +62,7 @@ def main():
         print(f"[+] Copiando executável para '{public_dest}' para disponibilizar download...")
         shutil.copy2(exe_dest, public_dest)
         
-        # 4. Gerar o arquivo ZIP para macOS
-        import zipfile
-        zip_dest = os.path.join("public", "robo_mac.zip")
-        if os.path.exists(zip_dest):
-            print("[+] Removendo zip antigo da pasta public...")
-            os.remove(zip_dest)
-        
-        print(f"[+] Gerando pacote ZIP para macOS em '{zip_dest}'...")
-        files_to_zip = [
-            ("server.py", "server.py"),
-            ("iniciar_mac.command", "iniciar_mac.command"),
-            ("compilar_mac.command", "compilar_mac.command"),
-            ("COMO_USAR_NO_MAC.txt", "COMO_USAR_NO_MAC.txt")
-        ]
-        
-        try:
-            with zipfile.ZipFile(zip_dest, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                # Add single files
-                for src, dest in files_to_zip:
-                    if os.path.exists(src):
-                        zipf.write(src, dest)
-                
-                # Add GUI_ADD folder (excluding unused subfolders of the Instagram export)
-                for root, dirs, files in os.walk("GUI_ADD"):
-                    # Check if this is an Instagram backup subdirectory
-                    if "instagram-thenperson" in root:
-                        rel_root = os.path.relpath(root, "GUI_ADD")
-                        parts = rel_root.split(os.sep)
-                        if len(parts) > 1:
-                            allowed = False
-                            if parts[1] == "media":
-                                allowed = True
-                            elif parts[1] == "logged_information":
-                                if len(parts) > 2 and parts[2] == "past_instagram_insights":
-                                    allowed = True
-                                elif len(parts) == 2:
-                                    allowed = True
-                            
-                            if not allowed:
-                                continue
-                    
-                    for file in files:
-                        file_path = os.path.join(root, file)
-                        # Relativize path for the zip archive
-                        rel_path = os.path.relpath(file_path, os.getcwd())
-                        zipf.write(file_path, rel_path)
-            print("[+] Pacote macOS 'robo_mac.zip' gerado com sucesso!")
-        except Exception as e:
-            print(f"[-] Erro ao gerar pacote macOS ZIP: {e}")
+        pass
 
         # Limpeza
         print("[+] Limpando pastas temporárias de compilação...")

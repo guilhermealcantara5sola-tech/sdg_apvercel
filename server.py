@@ -988,11 +988,11 @@ def bot_start():
                 saved_accounts[acc_username] = acc_password
                 save_accounts(saved_accounts)
 
-    if not resolved_accounts or not message or not leads:
-        return jsonify({"error": "Preencha as contas de disparo (com senhas enviadas ou salvas no PC), mensagem e passe pelo menos um lead."}), 400
-        
-    mode = data.get('mode', 'sequential')
     action = data.get('action', 'message')
+    mode = data.get('mode', 'sequential')
+
+    if not resolved_accounts or (action != 'follow' and not message) or not leads:
+        return jsonify({"error": "Preencha as contas de disparo (com senhas enviadas ou salvas no PC), mensagem (caso vá enviar) e passe pelo menos um lead."}), 400
     
     if mode == 'parallel':
         bot_thread = threading.Thread(
