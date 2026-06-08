@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2, Save, Upload } from 'lucide-react';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2, Save, Upload, Settings } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -767,7 +767,7 @@ const Broadcast: React.FC = () => {
                     </div>
                     {!isRunning && (
                       <button
-                        onClick={() => handleDeleteAccount(acc.username)}
+                        onClick={() => handleRemoveAccount(index)}
                         className="text-gray-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                         title="Remover Conta"
                       >
@@ -1375,7 +1375,7 @@ const Broadcast: React.FC = () => {
                         type="checkbox"
                         disabled={isRunning}
                         checked={selectedLeads.includes(follower.username)}
-                        onChange={() => handleToggleLead(follower.username)}
+                        onChange={() => toggleLeadSelection(follower.username)}
                         className="rounded text-purple-600 focus:ring-purple-500"
                       />
                       <div className="flex-1 min-w-0">
@@ -1415,18 +1415,7 @@ const Broadcast: React.FC = () => {
                 <button
                   type="button"
                   disabled={isRunning || loadingLeads}
-                  onClick={() => {
-                    const allUsernames = filteredFollowers.map(f => f.username);
-                    setSelectedLeads(prev => {
-                      const otherSelected = prev.filter(item => !allUsernames.includes(item));
-                      const isAllSelected = allUsernames.every(item => prev.includes(item));
-                      if (isAllSelected) {
-                        return otherSelected;
-                      } else {
-                        return [...otherSelected, ...allUsernames];
-                      }
-                    });
-                  }}
+                  onClick={selectAllFiltered}
                   className="flex-1 py-1.5 border border-purple-200 text-purple-600 hover:bg-purple-50 rounded-lg text-[10px] font-bold transition-all text-center"
                 >
                   {filteredFollowers.every(f => selectedLeads.includes(f.username)) && filteredFollowers.length > 0
