@@ -72,6 +72,25 @@ const Broadcast: React.FC = () => {
   const [postMaxDelay, setPostMaxDelay] = useState(15);
   const [postRotateEvery, setPostRotateEvery] = useState(1);
 
+  // Gemini AI
+  const [useGemini, setUseGemini] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState(() => {
+    try {
+      return localStorage.getItem('gemini_api_key') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [geminiPrompt, setGeminiPrompt] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('gemini_api_key', geminiApiKey);
+    } catch (e) {
+      console.warn('Could not save gemini_api_key to localStorage:', e);
+    }
+  }, [geminiApiKey]);
+
   const terminalRef = useRef<HTMLDivElement>(null);
 
   // Carregar seguidores reais
@@ -348,8 +367,13 @@ const Broadcast: React.FC = () => {
       return;
     }
 
-    if (triggerAction !== 'follow' && !message) {
+    if (triggerAction !== 'follow' && !useGemini && !message) {
       alert('Por favor, preencha o texto da mensagem!');
+      return;
+    }
+
+    if (useGemini && (!geminiApiKey || !geminiPrompt)) {
+      alert('Por favor, preencha a API Key do Gemini e a Instrução da IA!');
       return;
     }
 
@@ -376,7 +400,7 @@ const Broadcast: React.FC = () => {
       setBotState(prev => ({ 
         ...prev, 
         status: 'running', 
-        logs: prev?.logs ? [...prev.logs, `Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction})...`] : [`Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction})...`] 
+        logs: prev?.logs ? [...prev.logs, `Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction}${useGemini ? ', com Gemini IA' : ''})...`] : [`Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction}${useGemini ? ', com Gemini IA' : ''})...`] 
       }));
       
       await startBot({
@@ -387,7 +411,9 @@ const Broadcast: React.FC = () => {
         min_delay: minDelay,
         max_delay: maxDelay,
         mode: sendMode,
-        action: triggerAction
+        action: triggerAction,
+        gemini_api_key: useGemini ? geminiApiKey : undefined,
+        gemini_prompt: useGemini ? geminiPrompt : undefined
       });
       
       // Inicia o polling
@@ -431,11 +457,16 @@ const Broadcast: React.FC = () => {
       return;
     }
 
+    if (postShare && useGemini && (!geminiApiKey || !geminiPrompt)) {
+      alert('Por favor, preencha a API Key do Gemini e a Instrução da IA!');
+      return;
+    }
+
     try {
       setBotState(prev => ({ 
         ...prev, 
         status: 'running', 
-        logs: prev?.logs ? [...prev.logs, `Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'})...`] : [`Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'})...`] 
+        logs: prev?.logs ? [...prev.logs, `Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'}${postShare && useGemini ? ', com Gemini IA' : ''})...`] : [`Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'}${postShare && useGemini ? ', com Gemini IA' : ''})...`] 
       }));
 
       const res = await fetch(`${localStorage.getItem('api_base_url') || 'http://localhost:5000'}/api/bot/post-action`, {
@@ -452,7 +483,9 @@ const Broadcast: React.FC = () => {
           leads: allLeads,
           min_delay: postMinDelay,
           max_delay: postMaxDelay,
-          rotate_every: postRotateEvery
+          rotate_every: postRotateEvery,
+          gemini_api_key: (postShare && useGemini) ? geminiApiKey : undefined,
+          gemini_prompt: (postShare && useGemini) ? geminiPrompt : undefined
         })
       });
 
@@ -691,16 +724,60 @@ const Broadcast: React.FC = () => {
             </div>
 
             {(triggerAction === 'message' || triggerAction === 'both') && (
-              <div>
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Texto da Mensagem</label>
-                <textarea
-                  rows={4}
-                  placeholder="Olá @username! Vi que você acompanha nosso perfil... (Use com moderação)"
-                  disabled={isRunning}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-y"
-                />
+              <div className="space-y-4">
+                <div className="border border-purple-100 p-4 rounded-xl space-y-3 bg-purple-50/20">
+                  <label className="flex items-center gap-2 text-xs font-bold text-purple-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useGemini}
+                      disabled={isRunning}
+                      onChange={(e) => setUseGemini(e.target.checked)}
+                      className="rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    Personalizar mensagens com Inteligência Artificial (Google Gemini)
+                  </label>
+
+                  {useGemini && (
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Gemini API Key (Chave do Google)</label>
+                        <input
+                          type="password"
+                          placeholder="Cole sua API Key do Gemini aqui..."
+                          disabled={isRunning}
+                          value={geminiApiKey}
+                          onChange={(e) => setGeminiApiKey(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Instrução para a IA (ex: "Fale sobre futebol com empolgação")</label>
+                        <textarea
+                          rows={2}
+                          placeholder="O Gemini irá gerar um texto único para cada destinatário baseado nesta instrução."
+                          disabled={isRunning}
+                          value={geminiPrompt}
+                          onChange={(e) => setGeminiPrompt(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {!useGemini && (
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Texto da Mensagem</label>
+                    <textarea
+                      rows={4}
+                      placeholder="Olá @username! Vi que você acompanha nosso perfil... (Use com moderação)"
+                      disabled={isRunning}
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-y"
+                    />
+                  </div>
+                )}
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1077,6 +1154,48 @@ const Broadcast: React.FC = () => {
                   />
                   <span className="text-xs text-gray-500">compartilhamento(s)</span>
                 </div>
+              </div>
+            )}
+
+            {postShare && (
+              <div className="border border-purple-100 p-4 rounded-xl space-y-3 bg-purple-50/20 mt-3">
+                <label className="flex items-center gap-2 text-xs font-bold text-purple-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={useGemini}
+                    disabled={isRunning}
+                    onChange={(e) => setUseGemini(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-purple-500"
+                  />
+                  Personalizar comentário do Direct com IA (Gemini)
+                </label>
+
+                {useGemini && (
+                  <div className="space-y-3 pt-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Gemini API Key (Chave do Google)</label>
+                      <input
+                        type="password"
+                        placeholder="Cole sua API Key do Gemini aqui..."
+                        disabled={isRunning}
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Instrução para a IA (ex: "Elogie o post")</label>
+                      <textarea
+                        rows={2}
+                        placeholder="O Gemini irá gerar um texto único para acompanhar o compartilhamento."
+                        disabled={isRunning}
+                        value={geminiPrompt}
+                        onChange={(e) => setGeminiPrompt(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

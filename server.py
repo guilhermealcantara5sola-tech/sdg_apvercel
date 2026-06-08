@@ -725,7 +725,39 @@ def add_log(msg):
     with log_lock:
         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
-def run_account_thread(account, message_template, account_leads, min_delay, max_delay, thread_id, action='message'):
+def generate_gemini_message(api_key, username, prompt_instruction):
+    try:
+        import requests
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        headers = {'Content-Type': 'application/json'}
+        
+        system_prompt = (
+            f"Você é um assistente de redes sociais amigável enviando uma mensagem direta (DM) no Instagram "
+            f"para o usuário @{username}. A mensagem deve parecer natural, humana, sem parecer robótica "
+            f"ou spam, e deve ser curta (máximo 150 caracteres para caber bem no direct). "
+            f"Gere a mensagem baseando-se estritamente nesta instrução: {prompt_instruction}"
+        )
+        
+        payload = {
+            "contents": [{
+                "parts": [{"text": system_prompt}]
+            }]
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        if response.status_code == 200:
+            res_data = response.json()
+            parts = res_data.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+            if parts:
+                text = parts[0].get('text', '').strip()
+                if text.startswith('"') and text.endswith('"'):
+                    text = text[1:-1]
+                return text
+        return f"Erro na chamada do Gemini API (Status {response.status_code})"
+    except Exception as e:
+        return f"Erro ao gerar texto com Gemini: {e}"
+
+def run_account_thread(account, message_template, account_leads, min_delay, max_delay, thread_id, action='message', gemini_api_key=None, gemini_prompt=None):
     global bot_status, bot_progress, bot_instances
     username = account['username'].strip().replace("@", "")
     password = account['password']
@@ -771,8 +803,18 @@ def run_account_thread(account, message_template, account_leads, min_delay, max_
                     add_log(f"[@{username}] SUCESSO: Começou a seguir @{lead_username}")
                     
                 if action == 'message' or action == 'both':
+                    msg_to_send = message_template
+                    if gemini_api_key and gemini_prompt:
+                        add_log(f"[@{username}] Gerando mensagem personalizada com IA para @{lead_username}...")
+                        generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
+                        if "Erro" in generated:
+                            add_log(f"[@{username}] [Gemini] {generated}. Usando mensagem padrão.")
+                        else:
+                            msg_to_send = generated
+                            add_log(f"[@{username}] [Gemini] Mensagem gerada: \"{msg_to_send}\"")
+
                     add_log(f"[@{username}] Enviando mensagem para @{lead_username}...")
-                    bot.client.direct_send(message_template, [int(user_id)])
+                    bot.client.direct_send(msg_to_send, [int(user_id)])
                     add_log(f"[@{username}] SUCESSO: Mensagem enviada para @{lead_username}")
                 
                 with progress_lock:
@@ -792,7 +834,7 @@ def run_account_thread(account, message_template, account_leads, min_delay, max_
     except Exception as e:
         add_log(f"[@{username}] ERRO CRÍTICO na thread: {e}")
 
-def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay, action='message'):
+def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay, action='message', gemini_api_key=None, gemini_prompt=None):
     global bot_status, bot_progress, bot_instances
     
     bot_logs.clear()
@@ -814,7 +856,7 @@ def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay
             
         t = threading.Thread(
             target=run_account_thread,
-            args=(acc, message_template, account_leads, min_delay, max_delay, i + 1, action)
+            args=(acc, message_template, account_leads, min_delay, max_delay, i + 1, action, gemini_api_key, gemini_prompt)
         )
         t.daemon = True
         threads.append(t)
@@ -832,7 +874,7 @@ def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay
         add_log("Processamento paralelo concluído com sucesso!")
 
 # Execução do robô em thread
-def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rotate_every=1, action='message'):
+def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rotate_every=1, action='message', gemini_api_key=None, gemini_prompt=None):
     global bot_instance, bot_status, bot_progress, bot_logs
     
     bot_logs.clear()
@@ -916,8 +958,18 @@ def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rota
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: @{logged_in_username} começou a seguir @{lead_username}")
                     
                 if action == 'message' or action == 'both':
+                    msg_to_send = message_template
+                    if gemini_api_key and gemini_prompt:
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Gerando mensagem personalizada com IA para @{lead_username}...")
+                        generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
+                        if "Erro" in generated:
+                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] {generated}. Usando mensagem padrão.")
+                        else:
+                            msg_to_send = generated
+                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] Mensagem gerada: \"{msg_to_send}\"")
+
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Enviando mensagem para @{lead_username}...")
-                    bot_instance.client.direct_send(message_template, [int(user_id)])
+                    bot_instance.client.direct_send(msg_to_send, [int(user_id)])
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username}")
                 
                 messages_sent_by_current_account += 1
@@ -945,7 +997,7 @@ def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rota
         bot_status = "error"
         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO FATAL: {e}")
 
-def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every=1):
+def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every=1, gemini_api_key=None, gemini_prompt=None):
     global bot_instance, bot_status, bot_progress, bot_logs
     
     bot_logs.clear()
@@ -1081,8 +1133,16 @@ def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, ma
                         media_id = bot_instance.client.media_id(media_pk)
                     user_id = bot_instance.client.user_id_from_username(lead_username)
                     
+                    text_to_send = ""
+                    if gemini_api_key and gemini_prompt:
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Gerando comentário personalizado com IA para @{lead_username}...")
+                        generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
+                        if "Erro" not in generated:
+                            text_to_send = generated
+                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] Comentário gerado: \"{text_to_send}\"")
+                            
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Compartilhando post com @{lead_username}...")
-                    bot_instance.client.direct_media_share(media_id, [int(user_id)])
+                    bot_instance.client.direct_media_share(media_id, [int(user_id)], text=text_to_send)
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Post compartilhado com @{lead_username}")
                     
                     shares_sent_by_current_account += 1
@@ -1123,6 +1183,8 @@ def bot_post_action():
     min_delay = int(data.get('min_delay', 5))
     max_delay = int(data.get('max_delay', 15))
     rotate_every = int(data.get('rotate_every', 1))
+    gemini_api_key = data.get('gemini_api_key')
+    gemini_prompt = data.get('gemini_prompt')
     
     if not post_url:
         return jsonify({"error": "Forneça o link da publicação do Instagram."}), 400
@@ -1150,7 +1212,7 @@ def bot_post_action():
         
     bot_thread = threading.Thread(
         target=run_post_action_thread,
-        args=(resolved_accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every)
+        args=(resolved_accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every, gemini_api_key, gemini_prompt)
     )
     bot_thread.daemon = True
     bot_thread.start()
@@ -1202,19 +1264,22 @@ def bot_start():
 
     action = data.get('action', 'message')
     mode = data.get('mode', 'sequential')
+    gemini_api_key = data.get('gemini_api_key')
+    gemini_prompt = data.get('gemini_prompt')
 
-    if not resolved_accounts or (action != 'follow' and not message) or not leads:
+    needs_message = (action != 'follow') and not (gemini_api_key and gemini_prompt)
+    if not resolved_accounts or (needs_message and not message) or not leads:
         return jsonify({"error": "Preencha as contas de disparo (com senhas enviadas ou salvas no PC), mensagem (caso vá enviar) e passe pelo menos um lead."}), 400
     
     if mode == 'parallel':
         bot_thread = threading.Thread(
             target=run_parallel_threads, 
-            args=(resolved_accounts, message, leads, min_delay, max_delay, action)
+            args=(resolved_accounts, message, leads, min_delay, max_delay, action, gemini_api_key, gemini_prompt)
         )
     else:
         bot_thread = threading.Thread(
             target=run_bot_thread, 
-            args=(resolved_accounts, message, leads, min_delay, max_delay, rotate_every, action)
+            args=(resolved_accounts, message, leads, min_delay, max_delay, rotate_every, action, gemini_api_key, gemini_prompt)
         )
     bot_thread.daemon = True
     bot_thread.start()
