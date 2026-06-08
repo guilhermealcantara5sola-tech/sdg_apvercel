@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchFollowers } from '../utils/api';
-import { Users, Search, Filter, MessageSquare, ExternalLink, MapPin, Calendar, Heart, ShieldCheck } from 'lucide-react';
+import { fetchFollowers, syncInstagram } from '../utils/api';
+import { Users, Search, Filter, MessageSquare, ExternalLink, MapPin, Calendar, Heart, ShieldCheck, RefreshCw } from 'lucide-react';
 
 const Leads: React.FC = () => {
   const navigate = useNavigate();
@@ -15,6 +15,22 @@ const Leads: React.FC = () => {
   const [cityFilter, setCityFilter] = useState('Todas');
   const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
   const [showFilters, setShowFilters] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await syncInstagram();
+      const data = await fetchFollowers();
+      setFollowers(data.followers || []);
+      alert('🔄 Base de leads sincronizada com o Instagram em tempo real!');
+    } catch (err: any) {
+      console.error(err);
+      alert(`⚠️ Erro ao sincronizar: ${err.message || 'Verifique se o servidor local Python está ligado.'}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     async function loadFollowers() {
@@ -81,9 +97,19 @@ const Leads: React.FC = () => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Leads e Seguidores</h2>
-        <p className="text-gray-500">Gerencie e analise a base de contatos importada e integrada com o Supabase.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm animate-fadeIn">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Leads e Seguidores</h2>
+          <p className="text-gray-500 text-sm">Gerencie e analise a base de contatos importada e integrada com o Supabase.</p>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="flex items-center gap-2 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0 shrink-0"
+        >
+          <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+          {syncing ? 'Sincronizando...' : 'Sincronizar Leads'}
+        </button>
       </div>
 
       {/* Metrics Row */}

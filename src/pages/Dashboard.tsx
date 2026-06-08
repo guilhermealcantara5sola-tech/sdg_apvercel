@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, TrendingDown, Users, Eye, BarChart2, Heart, MessageSquare } from 'lucide-react';
-import { fetchStats, fetchPosts } from '../utils/api';
+import { TrendingUp, TrendingDown, Users, Eye, BarChart2, Heart, MessageSquare, RefreshCw } from 'lucide-react';
+import { fetchStats, fetchPosts, syncInstagram } from '../utils/api';
 import type { Metric, Post } from '../types';
 
 const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [username, setUsername] = useState('@thenperson');
 
   useEffect(() => {
     async function loadData() {
@@ -15,6 +17,12 @@ const Dashboard: React.FC = () => {
         const postsData = await fetchPosts();
         setMetrics(statsData.metrics);
         setPosts(postsData);
+        
+        // Tenta ver se temos o nome de usuário salvo no cache local
+        const cachedUsername = localStorage.getItem('synced_instagram_username');
+        if (cachedUsername) {
+          setUsername(`@${cachedUsername}`);
+        }
       } catch (err) {
         console.error('Error loading dashboard data', err);
       } finally {
@@ -23,6 +31,28 @@ const Dashboard: React.FC = () => {
     }
     loadData();
   }, []);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncInstagram();
+      if (result.username) {
+        setUsername(`@${result.username}`);
+        localStorage.setItem('synced_instagram_username', result.username);
+      }
+      // Recarrega os dados atualizados
+      const statsData = await fetchStats();
+      const postsData = await fetchPosts();
+      setMetrics(statsData.metrics);
+      setPosts(postsData);
+      alert('🔄 Dados sincronizados em tempo real com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      alert(`⚠️ Erro ao sincronizar: ${err.message || 'Verifique se o servidor local Python está ligado.'}`);
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -34,9 +64,19 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-800">Bem-vindo de volta, @thenperson 👋</h2>
-        <p className="text-gray-500">Aqui está o que aconteceu com sua conta nos últimos 30 dias.</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm animate-fadeIn">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Bem-vindo de volta, {username} 👋</h2>
+          <p className="text-gray-500 text-sm">Aqui está o que aconteceu com sua conta nos últimos 30 dias.</p>
+        </div>
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="flex items-center gap-2 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0 shrink-0"
+        >
+          <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+          {syncing ? 'Sincronizando...' : 'Sincronizar Instagram'}
+        </button>
       </div>
 
       {/* Stats Grid */}

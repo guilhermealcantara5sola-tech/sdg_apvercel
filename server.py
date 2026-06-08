@@ -103,6 +103,7 @@ bot_progress = {"current": 0, "total": 0, "current_user": ""}
 bot_thread = None
 
 ACCOUNTS_FILE = os.path.join(BASE_DIR, 'accounts.json')
+LIVE_CACHE_FILE = os.path.join(BASE_DIR, 'live_cache.json')
 
 def load_saved_accounts():
     if os.path.exists(ACCOUNTS_FILE):
@@ -161,6 +162,65 @@ def serve_media(path):
 # Dashboard Stats (followers, reach, insights)
 @app.route('/api/stats')
 def get_stats():
+    if os.path.exists(LIVE_CACHE_FILE):
+        try:
+            with open(LIVE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+                prof = cache.get("profile", {})
+                followers = cache.get("followers", [])
+                
+                # Calcula cidades a partir dos seguidores reais
+                cities_dict = {}
+                for f_item in followers:
+                    city = f_item.get("city", "Outras")
+                    cities_dict[city] = cities_dict.get(city, 0) + 1
+                
+                cities_data = []
+                total_f = len(followers) or 1
+                for c_name, c_cnt in cities_dict.items():
+                    cities_data.append({"name": c_name, "value": round((c_cnt / total_f) * 100, 1)})
+                cities_data.sort(key=lambda x: x["value"], reverse=True)
+                
+                # Calcula faixas etárias
+                age_dict = {}
+                for f_item in followers:
+                    age = f_item.get("age_range", "25-54")
+                    age_dict[age] = age_dict.get(age, 0) + 1
+                age_groups = [{"age": k, "value": round((v / total_f) * 100, 1)} for k, v in age_dict.items()]
+                
+                # Calcula gênero
+                gen_dict = {"Homens": 0, "Mulheres": 0}
+                for f_item in followers:
+                    gen = f_item.get("gender", "Mulheres")
+                    if gen in gen_dict:
+                        gen_dict[gen] += 1
+                gender_data = [{"name": k, "value": round((v / total_f) * 100, 1)} for k, v in gen_dict.items()]
+                
+                return jsonify({
+                    "metrics": [
+                        {"label": "Total Seguidores", "value": f"{prof.get('follower_count', 0):,}".replace(',', '.'), "change": 0.0},
+                        {"label": "Publicações", "value": str(prof.get('media_count', 0)), "change": 0.0},
+                        {"label": "Seguindo", "value": str(prof.get('following_count', 0)), "change": 0.0},
+                        {"label": "Leads Sincronizados", "value": str(len(followers)), "change": 100.0}
+                    ],
+                    "audience": {
+                        "cities": cities_data[:5],
+                        "age_groups": age_groups,
+                        "gender": gender_data,
+                        "weekday_activity": [
+                            {"day": "Segunda", "value": 12700},
+                            {"day": "Terça", "value": 12700},
+                            {"day": "Quarta", "value": 12800},
+                            {"day": "Quinta", "value": 12800},
+                            {"day": "Sexta", "value": 12700},
+                            {"day": "Sábado", "value": 12700},
+                            {"day": "Domingo", "value": 12800}
+                        ]
+                    }
+                })
+        except Exception as e:
+            print(f"Erro ao processar stats do cache: {e}")
+
     audience_path = os.path.join(EXPORT_DIR, 'logged_information', 'past_instagram_insights', 'audience_insights.json')
     reached_path = os.path.join(EXPORT_DIR, 'logged_information', 'past_instagram_insights', 'profiles_reached.json')
     
@@ -297,6 +357,14 @@ def get_stats():
 # Obter posts reais
 @app.route('/api/posts')
 def get_posts():
+    if os.path.exists(LIVE_CACHE_FILE):
+        try:
+            with open(LIVE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+                return jsonify(cache.get("posts", []))
+        except Exception as e:
+            print(f"Erro ao ler posts do cache: {e}")
+
     posts_path = os.path.join(EXPORT_DIR, 'logged_information', 'past_instagram_insights', 'posts.json')
     if not os.path.exists(posts_path):
         return jsonify([])
@@ -408,6 +476,21 @@ def infer_demographics(username):
 # Obter lista de seguidores reais para o broadcast
 @app.route('/api/followers')
 def get_followers():
+    if os.path.exists(LIVE_CACHE_FILE):
+        try:
+            with open(LIVE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+                followers = cache.get("followers", [])
+                followers.sort(key=lambda x: x['username'].lower())
+                return jsonify({
+                    "followers": followers,
+                    "following": [],
+                    "total_followers": len(followers),
+                    "total_following": 0
+                })
+        except Exception as e:
+            print(f"Erro ao ler seguidores do cache: {e}")
+
     followers_path = os.path.join(EXPORT_DIR, 'connections', 'followers_and_following', 'followers_1.json')
     following_path = os.path.join(EXPORT_DIR, 'connections', 'followers_and_following', 'following.json')
     
@@ -477,6 +560,27 @@ def get_followers():
 # Lista de conversas reais do direct
 @app.route('/api/chats')
 def get_chats():
+    if os.path.exists(LIVE_CACHE_FILE):
+        try:
+            with open(LIVE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+                chats = cache.get("chats", [])
+                chats_summary = []
+                for c in chats:
+                    chats_summary.append({
+                        "id": c.get("id"),
+                        "sender": c.get("sender"),
+                        "avatar": c.get("avatar"),
+                        "lastMessage": c.get("lastMessage"),
+                        "time": c.get("time"),
+                        "timestamp_ms": c.get("timestamp_ms"),
+                        "unread": c.get("unread"),
+                        "participants": c.get("participants")
+                    })
+                return jsonify(chats_summary)
+        except Exception as e:
+            print(f"Erro ao ler chats do cache: {e}")
+
     inbox_dir = os.path.join(EXPORT_DIR, 'your_instagram_activity', 'messages', 'inbox')
     if not os.path.exists(inbox_dir):
         return jsonify([])
@@ -534,6 +638,24 @@ def get_chats():
 # Histórico do chat
 @app.route('/api/chat/<folder>')
 def get_chat_messages(folder):
+    if os.path.exists(LIVE_CACHE_FILE):
+        try:
+            with open(LIVE_CACHE_FILE, 'r', encoding='utf-8') as f:
+                cache = json.load(f)
+                chats = cache.get("chats", [])
+                for chat in chats:
+                    is_match = (chat.get("id") == folder or 
+                                chat.get("sender").lower() == folder.lower() or 
+                                folder.lower() in [p.lower() for p in chat.get("participants", [])])
+                    if is_match:
+                        return jsonify({
+                            "title": chat.get("sender"),
+                            "participants": chat.get("participants"),
+                            "messages": chat.get("messages", [])
+                        })
+        except Exception as e:
+            print(f"Erro ao ler chat do cache: {e}")
+
     inbox_dir = os.path.join(EXPORT_DIR, 'your_instagram_activity', 'messages', 'inbox')
     message_file = os.path.join(inbox_dir, folder, 'message_1.json')
     
@@ -595,8 +717,122 @@ def get_chat_messages(folder):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+bot_instances = []
+progress_lock = threading.Lock()
+log_lock = threading.Lock()
+
+def add_log(msg):
+    with log_lock:
+        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] {msg}")
+
+def run_account_thread(account, message_template, account_leads, min_delay, max_delay, thread_id, action='message'):
+    global bot_status, bot_progress, bot_instances
+    username = account['username'].strip().replace("@", "")
+    password = account['password']
+    
+    add_log(f"[@{username}] Iniciando thread #{thread_id} para {len(account_leads)} leads...")
+    
+    bot = InstagramBot(log_callback=lambda msg: add_log(f"[@{username}] {msg}"))
+    with progress_lock:
+        bot_instances.append(bot)
+        
+    try:
+        from instagrapi import Client
+        bot.client = Client()
+        bot.client.delay_range = [2, 5]
+        
+        # Suporta proxy
+        proxy = os.environ.get("INSTAGRAM_PROXY")
+        if proxy:
+            bot.client.set_proxy(proxy)
+            
+        add_log(f"[@{username}] Conectando ao Instagram...")
+        if not bot.login(username, password):
+            add_log(f"[@{username}] ERRO: Falha no login da conta @{username}. Finalizando esta thread.")
+            return
+            
+        add_log(f"[@{username}] Conectado com sucesso!")
+        
+        for idx, lead_username in enumerate(account_leads):
+            if bot.stop_flag or bot_status == "stopping":
+                add_log(f"[@{username}] Thread interrompida pelo usuário.")
+                break
+                
+            lead_username = lead_username.strip().replace("@", "")
+            if not lead_username:
+                continue
+                
+            try:
+                user_id = bot.client.user_id_from_username(lead_username)
+                
+                if action == 'follow' or action == 'both':
+                    add_log(f"[@{username}] Seguindo @{lead_username}...")
+                    bot.client.user_follow(int(user_id))
+                    add_log(f"[@{username}] SUCESSO: Começou a seguir @{lead_username}")
+                    
+                if action == 'message' or action == 'both':
+                    add_log(f"[@{username}] Enviando mensagem para @{lead_username}...")
+                    bot.client.direct_send(message_template, [int(user_id)])
+                    add_log(f"[@{username}] SUCESSO: Mensagem enviada para @{lead_username}")
+                
+                with progress_lock:
+                    bot_progress["current"] += 1
+                    
+                # Delay randômico
+                delay = random.randint(min_delay, max_delay)
+                add_log(f"[@{username}] Aguardando {delay} segundos...")
+                for _ in range(delay):
+                    if bot.stop_flag or bot_status == "stopping":
+                        break
+                    time.sleep(1)
+            except Exception as e:
+                add_log(f"[@{username}] ERRO ao enviar para @{lead_username}: {e}")
+                time.sleep(5)
+                
+    except Exception as e:
+        add_log(f"[@{username}] ERRO CRÍTICO na thread: {e}")
+
+def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay, action='message'):
+    global bot_status, bot_progress, bot_instances
+    
+    bot_logs.clear()
+    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Iniciando disparador no MODO PARALELO...")
+    bot_status = "running"
+    bot_progress = {"current": 0, "total": len(leads), "current_user": "Múltiplas Contas"}
+    bot_instances.clear()
+    
+    num_accounts = len(accounts)
+    leads_per_account = [[] for _ in range(num_accounts)]
+    for idx, lead in enumerate(leads):
+        leads_per_account[idx % num_accounts].append(lead)
+        
+    threads = []
+    for i, acc in enumerate(accounts):
+        account_leads = leads_per_account[i]
+        if not account_leads:
+            continue
+            
+        t = threading.Thread(
+            target=run_account_thread,
+            args=(acc, message_template, account_leads, min_delay, max_delay, i + 1, action)
+        )
+        t.daemon = True
+        threads.append(t)
+        t.start()
+        
+    for t in threads:
+        t.join()
+        
+    any_stopped = any(bot.stop_flag for bot in bot_instances)
+    if any_stopped:
+        bot_status = "idle"
+        add_log("Disparador paralelo interrompido pelo usuário.")
+    else:
+        bot_status = "completed"
+        add_log("Processamento paralelo concluído com sucesso!")
+
 # Execução do robô em thread
-def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rotate_every=1):
+def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rotate_every=1, action='message'):
     global bot_instance, bot_status, bot_progress, bot_logs
     
     bot_logs.clear()
@@ -666,16 +902,24 @@ def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rota
                 messages_sent_by_current_account = 0
                 bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Conectado com sucesso como @{username}!")
             
-            # Envio da mensagem
+            # Ação de Enviar / Seguir
             bot_progress["current"] = i + 1
             bot_progress["current_user"] = lead_username
-            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Enviando mensagem para @{lead_username} usando a conta @{logged_in_username}...")
             
             try:
                 # Obter ID do usuário
                 user_id = bot_instance.client.user_id_from_username(lead_username)
-                bot_instance.client.direct_send(message_template, [int(user_id)])
-                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username} por @{logged_in_username}")
+                
+                if action == 'follow' or action == 'both':
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Seguindo @{lead_username}...")
+                    bot_instance.client.user_follow(int(user_id))
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: @{logged_in_username} começou a seguir @{lead_username}")
+                    
+                if action == 'message' or action == 'both':
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Enviando mensagem para @{lead_username}...")
+                    bot_instance.client.direct_send(message_template, [int(user_id)])
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username}")
+                
                 messages_sent_by_current_account += 1
                 
                 # Delay randômico
@@ -747,10 +991,19 @@ def bot_start():
     if not resolved_accounts or not message or not leads:
         return jsonify({"error": "Preencha as contas de disparo (com senhas enviadas ou salvas no PC), mensagem e passe pelo menos um lead."}), 400
         
-    bot_thread = threading.Thread(
-        target=run_bot_thread, 
-        args=(resolved_accounts, message, leads, min_delay, max_delay, rotate_every)
-    )
+    mode = data.get('mode', 'sequential')
+    action = data.get('action', 'message')
+    
+    if mode == 'parallel':
+        bot_thread = threading.Thread(
+            target=run_parallel_threads, 
+            args=(resolved_accounts, message, leads, min_delay, max_delay, action)
+        )
+    else:
+        bot_thread = threading.Thread(
+            target=run_bot_thread, 
+            args=(resolved_accounts, message, leads, min_delay, max_delay, rotate_every, action)
+        )
     bot_thread.daemon = True
     bot_thread.start()
     
@@ -759,11 +1012,14 @@ def bot_start():
 # Parar disparo
 @app.route('/api/bot/stop', methods=['POST'])
 def bot_stop():
-    global bot_instance, bot_status
-    if bot_status == "running" and bot_instance:
-        bot_instance.stop()
+    global bot_instance, bot_status, bot_instances
+    if bot_status == "running":
         bot_status = "stopping"
-        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Solicitando interrupção. Aguarde...")
+        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Solicitando interrupção de todas as threads...")
+        if bot_instance:
+            bot_instance.stop()
+        for bot in bot_instances:
+            bot.stop()
         return jsonify({"status": "stopping"})
     return jsonify({"error": "O robô não está em execução"}), 400
 
@@ -821,6 +1077,171 @@ def connection_info():
         "ngrok_url": ngrok_url,
         "local_url": f"http://{local_ip}:5000"
     })
+
+# Sincronização em tempo real das conversas, posts e seguidores
+@app.route('/api/sync', methods=['POST'])
+def sync_data():
+    accounts_dict = load_saved_accounts()
+    if not accounts_dict:
+        return jsonify({"error": "Nenhuma conta cadastrada para sincronização. Adicione uma conta nas configurações do Disparo."}), 400
+    
+    # Obtém o usuário a ser sincronizado (ou usa o primeiro da lista)
+    data = request.json or {}
+    username = data.get('username') or list(accounts_dict.keys())[0]
+    username = username.strip().replace("@", "")
+    
+    if username not in accounts_dict:
+        return jsonify({"error": f"Conta @{username} não encontrada nas contas salvas."}), 404
+        
+    password = accounts_dict[username]
+    
+    try:
+        from instagrapi import Client
+        cl = Client()
+        cl.delay_range = [2, 5]
+        
+        # Suporta proxy
+        proxy = os.environ.get("INSTAGRAM_PROXY")
+        if proxy:
+            cl.set_proxy(proxy)
+            
+        # Carrega sessão se existir
+        session_file = os.path.join(BASE_DIR, f"session_{username}.json")
+        if os.path.exists(session_file):
+            try:
+                cl.load_settings(session_file)
+                cl.login(username, password)
+            except Exception:
+                cl.login(username, password)
+                cl.dump_settings(session_file)
+        else:
+            cl.login(username, password)
+            cl.dump_settings(session_file)
+            
+        user_id = cl.user_id
+        
+        # 1. Informações básicas do Perfil
+        info = cl.user_info(user_id)
+        
+        # 2. Seguidores (limitamos a 100 para ser rápido)
+        followers_dict = cl.user_followers(user_id, amount=100)
+        
+        # 3. Posts recentes (12 posts)
+        medias = cl.user_medias(user_id, amount=12)
+        
+        # 4. Direct Threads (Conversas) (20 threads)
+        threads = cl.direct_threads(amount=20)
+        
+        # Processar seguidores
+        followers_cache = []
+        for fid, fuser in followers_dict.items():
+            gender, age_group, age_range, city = infer_demographics(fuser.username)
+            followers_cache.append({
+                "username": fuser.username,
+                "timestamp": int(time.time() * 1000), # aproximado
+                "followed_back": True,
+                "gender": gender,
+                "age_group": age_group,
+                "age_range": age_range,
+                "city": city
+            })
+            
+        # Processar posts
+        posts_cache = []
+        for media in medias:
+            img_url = media.thumbnail_url
+            if not img_url and media.resources:
+                img_url = media.resources[0].thumbnail_url
+            if not img_url:
+                img_url = "https://picsum.photos/400/400"
+                
+            posts_cache.append({
+                "id": str(media.id),
+                "imageUrl": str(img_url),
+                "caption": media.caption_text or "Sem legenda",
+                "likes": media.like_count,
+                "commentsCount": media.comment_count,
+                "date": media.taken_at.strftime('%Y-%m-%d') if media.taken_at else time.strftime('%Y-%m-%d')
+            })
+            
+        # Processar conversas
+        chats_cache = []
+        for thread in threads:
+            participants = [u.full_name or u.username for u in thread.users]
+            last_msg = ""
+            messages = []
+            
+            try:
+                # Pega as últimas 20 mensagens da thread
+                thread_messages = cl.direct_messages(thread.id, amount=20)
+                # Ordena da mais antiga para a mais recente
+                thread_messages.sort(key=lambda x: x.timestamp)
+                
+                for m in thread_messages:
+                    is_me = m.user_id == int(cl.user_id)
+                    sender_name = info.full_name or info.username if is_me else (thread.users[0].full_name or thread.users[0].username if thread.users else "Seguidor")
+                    
+                    msg_time = m.timestamp.strftime('%H:%M') if m.timestamp else ""
+                    msg_date = m.timestamp.strftime('%d/%m/%Y') if m.timestamp else ""
+                    
+                    messages.append({
+                        "sender": sender_name,
+                        "content": m.text or "[Mídia / Compartilhamento]",
+                        "time": msg_time,
+                        "date": msg_date,
+                        "timestamp_ms": int(m.timestamp.timestamp() * 1000) if m.timestamp else 0,
+                        "isMe": is_me
+                    })
+            except Exception as thread_err:
+                print(f"Erro ao ler mensagens da conversa {thread.id}: {thread_err}")
+            
+            if messages:
+                last_msg = messages[-1]["content"]
+                last_time = messages[-1]["time"]
+                last_ts = messages[-1]["timestamp_ms"]
+            else:
+                last_msg = "Sem mensagens"
+                last_time = ""
+                last_ts = 0
+                
+            thread_title = thread.thread_title or (thread.users[0].username if thread.users else "Conversa")
+            chats_cache.append({
+                "id": thread.id,
+                "sender": thread_title,
+                "avatar": f"https://api.dicebear.com/7.x/initials/svg?seed={thread_title}",
+                "lastMessage": last_msg,
+                "time": last_time,
+                "timestamp_ms": last_ts,
+                "unread": False,
+                "participants": participants + [info.full_name or info.username],
+                "messages": messages
+            })
+            
+        chats_cache.sort(key=lambda x: x['timestamp_ms'], reverse=True)
+            
+        cache_data = {
+            "username": username,
+            "profile": {
+                "username": info.username,
+                "full_name": info.full_name,
+                "follower_count": info.follower_count,
+                "following_count": info.following_count,
+                "media_count": info.media_count
+            },
+            "followers": followers_cache,
+            "posts": posts_cache,
+            "chats": chats_cache,
+            "synced_at": int(time.time() * 1000)
+        }
+        
+        with open(LIVE_CACHE_FILE, 'w', encoding='utf-8') as f:
+            json.dump(cache_data, f, indent=2, ensure_ascii=False)
+            
+        return jsonify({"status": "synced", "username": username, "followers_count": len(followers_cache)})
+        
+    except Exception as e:
+        print(f"Erro na sincronização em tempo real: {e}")
+        return jsonify({"error": f"Falha na sincronização: {str(e)}"}), 500
 
 if __name__ == '__main__':
     # Banner visual de inicialização

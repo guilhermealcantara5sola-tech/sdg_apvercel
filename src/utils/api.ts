@@ -535,3 +535,16 @@ export async function fetchConnectionInfo() {
   if (!res.ok) throw new Error('Failed to fetch connection info');
   return await res.json();
 }
+
+export async function syncInstagram(username?: string) {
+  const res = await fetch(`${getApiBase()}/api/sync`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ username })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Falha ao sincronizar dados');
+  }
+  return await res.json();
+}

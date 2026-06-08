@@ -9,6 +9,12 @@ class InstagramBot:
     def __init__(self, log_callback=None):
         self.client = Client()
         self.client.delay_range = [2, 5]
+        
+        # Suporta proxy configurado por variável de ambiente para uso em servidores/VPS
+        proxy = os.environ.get("INSTAGRAM_PROXY")
+        if proxy:
+            self.client.set_proxy(proxy)
+            
         self.log_callback = log_callback
         self.stop_flag = False
 

@@ -41,6 +41,8 @@ const Broadcast: React.FC = () => {
   const [minDelay, setMinDelay] = useState(60);
   const [maxDelay, setMaxDelay] = useState(120);
   const [manualLeads, setManualLeads] = useState('');
+  const [sendMode, setSendMode] = useState<'sequential' | 'parallel'>('sequential');
+  const [triggerAction, setTriggerAction] = useState<'message' | 'follow' | 'both'>('message');
 
   // Status e Logs
   const [botState, setBotState] = useState<BotState>({
@@ -87,6 +89,12 @@ const Broadcast: React.FC = () => {
         setMinDelay(config.minDelay || 60);
         setMaxDelay(config.maxDelay || 120);
         setRotateEvery(config.rotateEvery || 1);
+        if (config.sendMode) {
+          setSendMode(config.sendMode);
+        }
+        if (config.triggerAction) {
+          setTriggerAction(config.triggerAction);
+        }
       }
     } catch (e) {
       console.warn('Could not read config from localStorage:', e);
@@ -211,6 +219,68 @@ const Broadcast: React.FC = () => {
     setAccounts(prev => prev.filter((_, idx) => idx !== index));
   };
 
+  const handleImportAccountsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      
+      const newAccs: any[] = [];
+      for (const line of lines) {
+        const parts = line.split(/[,:]/);
+        if (parts.length >= 2) {
+          const user = parts[0].trim().replace('@', '');
+          const pass = parts[1].trim();
+          if (user && pass && !accounts.some(acc => acc.username.toLowerCase() === user.toLowerCase()) && !newAccs.some(acc => acc.username.toLowerCase() === user.toLowerCase())) {
+            newAccs.push({ username: user, password: pass });
+          }
+        }
+      }
+
+      if (newAccs.length > 0) {
+        try {
+          for (const acc of newAccs) {
+            await addSavedAccount(acc);
+          }
+          setAccounts(prev => [...prev, ...newAccs.map(acc => ({ username: acc.username, password: '' }))]);
+          alert(`✅ ${newAccs.length} contas importadas com sucesso!`);
+        } catch (err) {
+          console.warn('Erro ao salvar contas no servidor, salvando localmente:', err);
+          setAccounts(prev => [...prev, ...newAccs]);
+          alert(`✅ ${newAccs.length} contas importadas localmente!`);
+        }
+      } else {
+        alert('Nenhuma conta nova encontrada no arquivo. Use o formato "usuario,senha" (uma conta por linha).');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportLeadsFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      const names = text.split(/[\n,]/).map(n => n.trim().replace('@', '')).filter(n => n);
+      if (names.length > 0) {
+        setManualLeads(prev => {
+          const current = prev.split(',').map(l => l.trim()).filter(l => l);
+          const merged = Array.from(new Set([...current, ...names]));
+          return merged.join(', ');
+        });
+        alert(`✅ ${names.length} destinatários carregados no campo manual!`);
+      } else {
+        alert('Nenhum destinatário encontrado no arquivo.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
   // Filtrar lista de seguidores
   const filteredFollowers = followers.filter(f => {
     const matchesSearch = f.username.toLowerCase().includes(searchTerm.toLowerCase());
@@ -270,8 +340,13 @@ const Broadcast: React.FC = () => {
       return;
     }
 
-    if (!message || allLeads.length === 0) {
-      alert('Por favor, preencha o texto da mensagem e selecione ao menos um destinatário!');
+    if (triggerAction !== 'follow' && !message) {
+      alert('Por favor, preencha o texto da mensagem!');
+      return;
+    }
+
+    if (allLeads.length === 0) {
+      alert('Por favor, selecione ao menos um destinatário!');
       return;
     }
 
@@ -281,7 +356,9 @@ const Broadcast: React.FC = () => {
         message,
         minDelay,
         maxDelay,
-        rotateEvery
+        rotateEvery,
+        sendMode,
+        triggerAction
       }));
     } catch (e) {
       console.warn('Could not save config to localStorage:', e);
@@ -291,7 +368,7 @@ const Broadcast: React.FC = () => {
       setBotState(prev => ({ 
         ...prev, 
         status: 'running', 
-        logs: prev?.logs ? [...prev.logs, 'Iniciando disparador com rotatividade...'] : ['Iniciando disparador com rotatividade...'] 
+        logs: prev?.logs ? [...prev.logs, `Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction})...`] : [`Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction})...`] 
       }));
       
       await startBot({
@@ -300,7 +377,9 @@ const Broadcast: React.FC = () => {
         message,
         leads: allLeads,
         min_delay: minDelay,
-        max_delay: maxDelay
+        max_delay: maxDelay,
+        mode: sendMode,
+        action: triggerAction
       });
       
       // Inicia o polling
@@ -361,14 +440,6 @@ const Broadcast: React.FC = () => {
             <Download size={16} />
             Baixar para Windows (.exe)
           </a>
-          <a
-            href="/robo_mac.zip"
-            download="robo_mac.zip"
-            className="flex items-center gap-2 text-sm font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow"
-          >
-            <Download size={16} />
-            Baixar para Mac (.zip)
-          </a>
         </div>
       </div>
 
@@ -392,7 +463,18 @@ const Broadcast: React.FC = () => {
             {/* Form de Adição */}
             {!isRunning && (
               <form onSubmit={handleAddAccount} className="bg-gray-50/50 p-4 rounded-xl space-y-3 border border-gray-100">
-                <p className="text-xs font-bold text-gray-600">Adicionar Nova Conta do Instagram</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs font-bold text-gray-600">Adicionar Nova Conta do Instagram</p>
+                  <label className="text-xs text-purple-600 font-bold hover:underline cursor-pointer flex items-center gap-1">
+                    <span>Importar Contas (.txt)</span>
+                    <input
+                      type="file"
+                      accept=".txt"
+                      className="hidden"
+                      onChange={handleImportAccountsFile}
+                    />
+                  </label>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <input
@@ -453,24 +535,69 @@ const Broadcast: React.FC = () => {
               )}
             </div>
 
-            {/* Controle de Rotatividade */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-purple-50/40 p-4 rounded-xl border border-purple-100/30">
-              <div className="space-y-0.5">
-                <span className="text-xs font-bold text-purple-700 block">Frequência de Rotação</span>
-                <span className="text-xs text-gray-500">Troca a conta de disparo automaticamente após enviar um número de DMs.</span>
+            {/* Modo de Disparo e Frequência */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-gray-700 block">Modo de Envio</span>
+                  <span className="text-xs text-gray-500">Escolha se as contas enviam de forma sequencial ou paralela.</span>
+                </div>
+                <div className="flex bg-white p-1 rounded-lg border border-gray-200 shrink-0">
+                  <button
+                    type="button"
+                    disabled={isRunning}
+                    onClick={() => setSendMode('sequential')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                      sendMode === 'sequential'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Sequencial
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isRunning}
+                    onClick={() => setSendMode('parallel')}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                      sendMode === 'parallel'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Paralelo (Mais Rápido)
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-700">Mudar conta a cada</label>
-                <input
-                  type="number"
-                  min="1"
-                  disabled={isRunning}
-                  value={rotateEvery}
-                  onChange={(e) => setRotateEvery(Math.max(1, Number(e.target.value)))}
-                  className="w-16 px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
-                />
-                <label className="text-xs text-gray-700">envio(s)</label>
-              </div>
+
+              {sendMode === 'sequential' ? (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-purple-50/40 p-4 rounded-xl border border-purple-100/30">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-purple-700 block">Frequência de Rotação</span>
+                    <span className="text-xs text-gray-500">Troca a conta de disparo automaticamente após enviar um número de DMs.</span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <label className="text-xs text-gray-700">Mudar conta a cada</label>
+                    <input
+                      type="number"
+                      min="1"
+                      disabled={isRunning}
+                      value={rotateEvery}
+                      onChange={(e) => setRotateEvery(Math.max(1, Number(e.target.value)))}
+                      className="w-16 px-2 py-1 bg-white border border-gray-200 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
+                    />
+                    <label className="text-xs text-gray-700">envio(s)</label>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-green-50/50 p-4 rounded-xl border border-green-100/30 text-green-800 text-xs leading-relaxed">
+                  <p className="font-bold flex items-center gap-1.5 text-green-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                    Envio Paralelo Ativado:
+                  </p>
+                  <p className="mt-0.5 text-gray-600">Todas as {accounts.length} contas cadastradas enviarão mensagens ao mesmo tempo, dividindo a lista de destinatários. Isso aumentará a velocidade de disparo em até {accounts.length}x!</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -481,16 +608,32 @@ const Broadcast: React.FC = () => {
               <h3>Mensagem e Controle</h3>
             </div>
             <div>
-              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Texto da Mensagem</label>
-              <textarea
-                rows={4}
-                placeholder="Olá @username! Vi que você acompanha nosso perfil... (Use com moderação)"
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Ação a Executar</label>
+              <select
                 disabled={isRunning}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-y"
-              />
+                value={triggerAction}
+                onChange={(e) => setTriggerAction(e.target.value as any)}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
+              >
+                <option value="message">Apenas Enviar Mensagem (Direct)</option>
+                <option value="follow">Apenas Seguir Usuários</option>
+                <option value="both">Seguir e Enviar Mensagem (Direct)</option>
+              </select>
             </div>
+
+            {(triggerAction === 'message' || triggerAction === 'both') && (
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Texto da Mensagem</label>
+                <textarea
+                  rows={4}
+                  placeholder="Olá @username! Vi que você acompanha nosso perfil... (Use com moderação)"
+                  disabled={isRunning}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-y"
+                />
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Mínimo (segundos)</label>
@@ -750,7 +893,19 @@ const Broadcast: React.FC = () => {
 
           {/* Entrada Manual de Leads */}
           <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-500 uppercase block">Adicionar Leads Manuais (vírgula)</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-gray-500 uppercase block">Adicionar Leads Manuais (vírgula)</label>
+              <label className="text-xs text-purple-600 font-bold hover:underline cursor-pointer flex items-center gap-1">
+                <span>Carregar arquivo (.txt)</span>
+                <input
+                  type="file"
+                  accept=".txt"
+                  className="hidden"
+                  onChange={handleImportLeadsFile}
+                  disabled={isRunning}
+                />
+              </label>
+            </div>
             <input
               type="text"
               placeholder="ex: neymarjr, casimiro, @anitta"
