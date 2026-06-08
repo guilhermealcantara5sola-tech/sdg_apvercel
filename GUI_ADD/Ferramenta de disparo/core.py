@@ -54,26 +54,60 @@ class InstagramBot:
             if not username:
                 continue
                 
-            self.log(f"--- Processando: @{username} ---")
+            self.log(f"--- Processando DM: @{username} ---")
             try:
                 user_id = self.client.user_id_from_username(username)
                 self.client.direct_send(message_template, [int(user_id)])
                 self.log(f"Mensagem enviada para @{username}")
                 
-                delay = random.randint(min_delay, max_delay)
-                self.log(f"Aguardando {delay} segundos...")
-                
-                # Sleep em pequenos intervalos para checar stop_flag
-                for _ in range(delay):
-                    if self.stop_flag:
-                        break
-                    time.sleep(1)
+                self.wait_between_actions(min_delay, max_delay)
                     
             except Exception as e:
                 self.log(f"Erro com @{username}: {e}")
                 time.sleep(5)
                 
-        self.log("Processamento concluído.")
+        self.log("Processamento de DMs concluído.")
+
+    def comment_on_post(self, post_url, leads, message_template, min_delay, max_delay):
+        self.stop_flag = False
+        self.log(f"Iniciando comentários no post: {post_url}")
+        
+        try:
+            media_id = self.client.media_id(self.client.media_pk_from_url(post_url))
+        except Exception as e:
+            self.log(f"Erro ao obter ID do post: {e}")
+            return
+
+        for username in leads:
+            if self.stop_flag:
+                self.log("Processo interrompido pelo usuário.")
+                break
+                
+            username = username.strip().replace("@", "")
+            if not username:
+                continue
+                
+            self.log(f"--- Comentando para: @{username} ---")
+            try:
+                comment_text = f"{message_template} @{username}"
+                self.client.media_comment(media_id, comment_text)
+                self.log(f"Comentário feito marcando @{username}")
+                
+                self.wait_between_actions(min_delay, max_delay)
+                    
+            except Exception as e:
+                self.log(f"Erro ao comentar para @{username}: {e}")
+                time.sleep(5)
+                
+        self.log("Processamento de comentários concluído.")
+
+    def wait_between_actions(self, min_delay, max_delay):
+        delay = random.randint(min_delay, max_delay)
+        self.log(f"Aguardando {delay} segundos...")
+        for _ in range(delay):
+            if self.stop_flag:
+                break
+            time.sleep(1)
 
     def stop(self):
         self.stop_flag = True

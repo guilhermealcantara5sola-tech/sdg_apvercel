@@ -33,9 +33,13 @@ class InstagramGUI:
         frame_login.columnconfigure(1, weight=1)
         
         # Frame de Mensagem
-        frame_msg = tk.LabelFrame(self.root, text="Mensagem e Delays", padx=10, pady=10)
+        frame_msg = tk.LabelFrame(self.root, text="Mensagem e Configurações", padx=10, pady=10)
         frame_msg.pack(padx=10, pady=5, fill="both", expand=True)
         
+        tk.Label(frame_msg, text="Link do Post (para comentários):").pack(anchor="w")
+        self.ent_post_url = tk.Entry(frame_msg)
+        self.ent_post_url.pack(fill="x", pady=(0, 5))
+
         tk.Label(frame_msg, text="Mensagem:").pack(anchor="w")
         self.txt_msg = scrolledtext.ScrolledText(frame_msg, height=5)
         self.txt_msg.pack(fill="both", expand=True, pady=5)
@@ -54,7 +58,7 @@ class InstagramGUI:
         self.ent_max_delay.pack(side="left", padx=5)
         
         # Frame de Leads
-        frame_leads = tk.LabelFrame(self.root, text="Lista de Arrobas", padx=10, pady=10)
+        frame_leads = tk.LabelFrame(self.root, text="Lista de Arrobas (Leads)", padx=10, pady=10)
         frame_leads.pack(padx=10, pady=5, fill="x")
         
         # Entrada Manual
@@ -81,13 +85,17 @@ class InstagramGUI:
         frame_actions = tk.Frame(self.root, pady=10)
         frame_actions.pack(fill="x")
         
-        self.btn_start = tk.Button(frame_actions, text="INICIAR DISPARO", bg="#4CAF50", fg="white", 
-                                   font=("Arial", 10, "bold"), command=self.start_process)
-        self.btn_start.pack(side="left", padx=10, expand=True, fill="x")
+        self.btn_dm = tk.Button(frame_actions, text="DISPARAR DMs", bg="#4CAF50", fg="white", 
+                                   font=("Arial", 10, "bold"), command=lambda: self.start_process("dm"))
+        self.btn_dm.pack(side="left", padx=5, expand=True, fill="x")
+
+        self.btn_comment = tk.Button(frame_actions, text="COMENTAR NO POST", bg="#2196F3", fg="white", 
+                                   font=("Arial", 10, "bold"), command=lambda: self.start_process("comment"))
+        self.btn_comment.pack(side="left", padx=5, expand=True, fill="x")
         
         self.btn_stop = tk.Button(frame_actions, text="PARAR", bg="#f44336", fg="white",
                                   command=self.stop_process, state='disabled')
-        self.btn_stop.pack(side="left", padx=10, expand=True, fill="x")
+        self.btn_stop.pack(side="left", padx=5, expand=True, fill="x")
 
     def log(self, message):
         self.txt_log.config(state='normal')
@@ -117,6 +125,7 @@ class InstagramGUI:
         config = {
             "username": self.ent_user.get(),
             "message": self.txt_msg.get("1.0", tk.END).strip(),
+            "post_url": self.ent_post_url.get(),
             "min_delay": self.ent_min_delay.get(),
             "max_delay": self.ent_max_delay.get()
         }
@@ -130,6 +139,7 @@ class InstagramGUI:
                     config = json.load(f)
                     self.ent_user.insert(0, config.get("username", ""))
                     self.txt_msg.insert("1.0", config.get("message", ""))
+                    self.ent_post_url.insert(0, config.get("post_url", ""))
                     self.ent_min_delay.delete(0, tk.END)
                     self.ent_min_delay.insert(0, config.get("min_delay", "60"))
                     self.ent_max_delay.delete(0, tk.END)
@@ -137,10 +147,11 @@ class InstagramGUI:
             except:
                 pass
 
-    def start_process(self):
+    def start_process(self, mode):
         user = self.ent_user.get()
         password = self.ent_pass.get()
         msg = self.txt_msg.get("1.0", tk.END).strip()
+        post_url = self.ent_post_url.get().strip()
         
         # Coleta leads manuais
         manual_leads_raw = self.ent_manual_leads.get().split(',')
@@ -153,6 +164,10 @@ class InstagramGUI:
             messagebox.showwarning("Aviso", "Preencha todos os campos e adicione pelo menos um contato (manual ou arquivo).")
             return
             
+        if mode == "comment" and not post_url:
+            messagebox.showwarning("Aviso", "Para comentar, você precisa informar o Link do Post.")
+            return
+
         try:
             min_d = int(self.ent_min_delay.get())
             max_d = int(self.ent_max_delay.get())
@@ -161,24 +176,29 @@ class InstagramGUI:
             return
 
         self.save_current_config()
-        self.btn_start.config(state='disabled')
+        self.btn_dm.config(state='disabled')
+        self.btn_comment.config(state='disabled')
         self.btn_stop.config(state='normal')
         
         self.bot = InstagramBot(log_callback=self.log)
         
         # Rodar em uma thread separada
-        thread = threading.Thread(target=self.run_bot, args=(user, password, all_leads, msg, min_d, max_d))
+        thread = threading.Thread(target=self.run_bot, args=(mode, user, password, all_leads, msg, post_url, min_d, max_d))
         thread.daemon = True
         thread.start()
 
-    def run_bot(self, user, password, leads, msg, min_d, max_d):
+    def run_bot(self, mode, user, password, leads, msg, post_url, min_d, max_d):
         if self.bot.login(user, password):
-            self.bot.send_dms(leads, msg, min_d, max_d)
+            if mode == "dm":
+                self.bot.send_dms(leads, msg, min_d, max_d)
+            elif mode == "comment":
+                self.bot.comment_on_post(post_url, leads, msg, min_d, max_d)
         
         self.root.after(0, self.finish_process)
 
     def finish_process(self):
-        self.btn_start.config(state='normal')
+        self.btn_dm.config(state='normal')
+        self.btn_comment.config(state='normal')
         self.btn_stop.config(state='disabled')
         messagebox.showinfo("Fim", "Processo concluído ou interrompido.")
 
