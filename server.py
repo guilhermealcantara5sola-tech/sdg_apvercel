@@ -945,6 +945,218 @@ def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rota
         bot_status = "error"
         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO FATAL: {e}")
 
+def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every=1):
+    global bot_instance, bot_status, bot_progress, bot_logs
+    
+    bot_logs.clear()
+    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Iniciando automação de postagem (Curtir/Compartilhar)...")
+    bot_status = "running"
+    
+    try:
+        bot_instance = InstagramBot(log_callback=lambda msg: bot_logs.append(f"[{time.strftime('%H:%M:%S')}] {msg}"))
+        bot_instance.stop_flag = False
+        
+        liked_accounts = set()
+        media_id = None
+        
+        if not share:
+            # Apenas curtir com todas as contas
+            bot_progress = {"current": 0, "total": len(accounts), "current_user": ""}
+            for idx, acc in enumerate(accounts):
+                if bot_instance.stop_flag or bot_status == "stopping":
+                    break
+                username = acc['username'].strip().replace("@", "")
+                password = acc['password']
+                bot_progress["current"] = idx + 1
+                bot_progress["current_user"] = username
+                
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{username}] Conectando para curtir o post...")
+                from instagrapi import Client
+                bot_instance.client = Client()
+                bot_instance.client.delay_range = [2, 5]
+                
+                # Suporta proxy
+                proxy = os.environ.get("INSTAGRAM_PROXY")
+                if proxy:
+                    bot_instance.client.set_proxy(proxy)
+                    
+                if bot_instance.login(username, password):
+                    try:
+                        if not media_id:
+                            media_pk = bot_instance.client.media_pk_from_url(post_url)
+                            media_id = bot_instance.client.media_id(media_pk)
+                        
+                        bot_instance.client.media_like(media_id)
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: @{username} curtiu o post.")
+                    except Exception as ex:
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao curtir com @{username}: {ex}")
+                else:
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO: Falha de login para @{username}.")
+                
+                if idx < len(accounts) - 1:
+                    delay = random.randint(min_delay, max_delay)
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Aguardando {delay} segundos...")
+                    for _ in range(delay):
+                        if bot_instance.stop_flag or bot_status == "stopping":
+                            break
+                        time.sleep(1)
+        else:
+            # Curtir e/ou Compartilhar com leads
+            bot_progress = {"current": 0, "total": len(leads), "current_user": ""}
+            current_account_index = 0
+            shares_sent_by_current_account = 0
+            logged_in_username = None
+            
+            for i, lead in enumerate(leads):
+                if bot_instance.stop_flag or bot_status == "stopping":
+                    break
+                lead_username = lead.strip().replace("@", "")
+                if not lead_username:
+                    continue
+                    
+                need_switch = False
+                if logged_in_username is None:
+                    need_switch = True
+                elif shares_sent_by_current_account >= rotate_every:
+                    need_switch = True
+                    
+                if need_switch:
+                    if not accounts:
+                        bot_status = "error"
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO: Nenhuma conta cadastrada.")
+                        return
+                        
+                    if logged_in_username is not None:
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Limite de envios de @{logged_in_username} atingido. Alternando conta...")
+                        current_account_index = (current_account_index + 1) % len(accounts)
+                        
+                    acc = accounts[current_account_index]
+                    username = acc['username'].strip().replace("@", "")
+                    password = acc['password']
+                    
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{username}] Conectando ao Instagram...")
+                    from instagrapi import Client
+                    bot_instance.client = Client()
+                    bot_instance.client.delay_range = [2, 5]
+                    
+                    # Suporta proxy
+                    proxy = os.environ.get("INSTAGRAM_PROXY")
+                    if proxy:
+                        bot_instance.client.set_proxy(proxy)
+                        
+                    if not bot_instance.login(username, password):
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO: Falha no login da conta @{username}. Tentando próxima...")
+                        if len(accounts) > 1:
+                            current_account_index = (current_account_index + 1) % len(accounts)
+                            time.sleep(5)
+                            # Reprocessa o mesmo lead
+                            continue
+                        else:
+                            bot_status = "error"
+                            return
+                            
+                    logged_in_username = username
+                    shares_sent_by_current_account = 0
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Conectado com sucesso como @{username}!")
+                    
+                # Se precisar curtir o post e ainda não curtiu com esta conta
+                if like and logged_in_username not in liked_accounts:
+                    try:
+                        if not media_id:
+                            media_pk = bot_instance.client.media_pk_from_url(post_url)
+                            media_id = bot_instance.client.media_id(media_pk)
+                        bot_instance.client.media_like(media_id)
+                        liked_accounts.add(logged_in_username)
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: @{logged_in_username} curtiu o post.")
+                    except Exception as ex:
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao curtir com @{logged_in_username}: {ex}")
+                        
+                # Compartilhar o post com o lead
+                bot_progress["current"] = i + 1
+                bot_progress["current_user"] = lead_username
+                
+                try:
+                    if not media_id:
+                        media_pk = bot_instance.client.media_pk_from_url(post_url)
+                        media_id = bot_instance.client.media_id(media_pk)
+                    user_id = bot_instance.client.user_id_from_username(lead_username)
+                    
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Compartilhando post com @{lead_username}...")
+                    bot_instance.client.direct_media_share(media_id, [int(user_id)])
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Post compartilhado com @{lead_username}")
+                    
+                    shares_sent_by_current_account += 1
+                    
+                    delay = random.randint(min_delay, max_delay)
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Aguardando {delay} segundos...")
+                    for _ in range(delay):
+                        if bot_instance.stop_flag or bot_status == "stopping":
+                            break
+                        time.sleep(1)
+                except Exception as ex:
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao compartilhar com @{lead_username} usando @{logged_in_username}: {ex}")
+                    shares_sent_by_current_account = rotate_every
+                    time.sleep(5)
+                    
+        if not bot_instance.stop_flag and bot_status != "stopping":
+            bot_status = "completed"
+            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Automação de postagem concluída com sucesso!")
+        else:
+            bot_status = "idle"
+            
+    except Exception as e:
+        bot_status = "error"
+        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO geral na automação de postagem: {e}")
+
+# Iniciar curtidas/compartilhamentos de post
+@app.route('/api/bot/post-action', methods=['POST'])
+def bot_post_action():
+    global bot_thread, bot_status
+    if bot_status == "running":
+        return jsonify({"error": "O robô já está em execução"}), 400
+        
+    data = request.json or {}
+    post_url = data.get('post_url')
+    like = bool(data.get('like', False))
+    share = bool(data.get('share', False))
+    leads = data.get('leads', [])
+    min_delay = int(data.get('min_delay', 5))
+    max_delay = int(data.get('max_delay', 15))
+    rotate_every = int(data.get('rotate_every', 1))
+    
+    if not post_url:
+        return jsonify({"error": "Forneça o link da publicação do Instagram."}), 400
+        
+    if not like and not share:
+        return jsonify({"error": "Selecione pelo menos uma ação (Curtir ou Compartilhar)."}), 400
+        
+    if share and not leads:
+        return jsonify({"error": "Forneça pelo menos um lead para compartilhar o post."}), 400
+        
+    # Contas
+    accounts = data.get('accounts', [])
+    resolved_accounts = []
+    saved_accounts = load_saved_accounts()
+    for acc in accounts:
+        acc_username = acc.get('username', '').strip().replace("@", "")
+        acc_password = acc.get('password', '')
+        if not acc_password:
+            acc_password = saved_accounts.get(acc_username, '')
+        if acc_username and acc_password:
+            resolved_accounts.append({"username": acc_username, "password": acc_password})
+            
+    if not resolved_accounts:
+        return jsonify({"error": "Selecione ou cadastre pelo menos uma conta de disparo."}), 400
+        
+    bot_thread = threading.Thread(
+        target=run_post_action_thread,
+        args=(resolved_accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every)
+    )
+    bot_thread.daemon = True
+    bot_thread.start()
+    
+    return jsonify({"status": "started"})
+
 # Iniciar disparo
 @app.route('/api/bot/start', methods=['POST'])
 def bot_start():

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Download } from 'lucide-react';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Check, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2 } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -63,6 +63,14 @@ const Broadcast: React.FC = () => {
   const [ageFilter, setAgeFilter] = useState('Todos');
   const [cityFilter, setCityFilter] = useState('Todas');
   const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
+
+  // Impulsionamento de Postagem
+  const [postUrl, setPostUrl] = useState('');
+  const [postLike, setPostLike] = useState(true);
+  const [postShare, setPostShare] = useState(false);
+  const [postMinDelay, setPostMinDelay] = useState(5);
+  const [postMaxDelay, setPostMaxDelay] = useState(15);
+  const [postRotateEvery, setPostRotateEvery] = useState(1);
 
   const terminalRef = useRef<HTMLDivElement>(null);
 
@@ -396,6 +404,67 @@ const Broadcast: React.FC = () => {
       setBotState(prev => ({ ...prev, status: 'stopping' }));
     } catch (err: any) {
       alert(`Erro ao parar robô: ${err.message}`);
+    }
+  };
+
+  const handlePostActionStart = async () => {
+    if (activeAccounts.length === 0) {
+      alert('Por favor, adicione pelo menos uma conta do Instagram para realizar a ação!');
+      return;
+    }
+    if (!postUrl) {
+      alert('Por favor, insira o link da publicação!');
+      return;
+    }
+    if (!postLike && !postShare) {
+      alert('Selecione pelo menos uma ação (Curtir ou Compartilhar)!');
+      return;
+    }
+
+    // Coleta leads manuais
+    const parsedManual = manualLeads.split(',').map(l => l.trim()).filter(l => l);
+    // Junta com seguidores selecionados
+    const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
+
+    if (postShare && allLeads.length === 0) {
+      alert('Por favor, selecione ao menos um destinatário para o compartilhamento!');
+      return;
+    }
+
+    try {
+      setBotState(prev => ({ 
+        ...prev, 
+        status: 'running', 
+        logs: prev?.logs ? [...prev.logs, `Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'})...`] : [`Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'})...`] 
+      }));
+
+      const res = await fetch(`${localStorage.getItem('api_base_url') || 'http://localhost:5000'}/api/bot/post-action`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': localStorage.getItem('api_token') || ''
+        },
+        body: JSON.stringify({
+          accounts: activeAccounts,
+          post_url: postUrl,
+          like: postLike,
+          share: postShare,
+          leads: allLeads,
+          min_delay: postMinDelay,
+          max_delay: postMaxDelay,
+          rotate_every: postRotateEvery
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Erro ao iniciar');
+      }
+
+      setBotState(prev => ({ ...prev, status: 'running' }));
+    } catch (err: any) {
+      alert(`Erro ao iniciar impulsionamento: ${err.message}`);
+      setBotState(prev => ({ ...prev, status: 'idle' }));
     }
   };
 
@@ -915,6 +984,127 @@ const Broadcast: React.FC = () => {
               className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Impulsionamento de Postagem */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b border-gray-50 pb-3">
+          <div className="flex items-center gap-2 text-purple-600 font-bold">
+            <Heart size={20} className={isRunning ? 'animate-pulse' : ''} />
+            <Share2 size={20} />
+            <h3>Impulsionamento de Postagem (Curtir & Compartilhar)</h3>
+          </div>
+          <span className="text-xs px-2.5 py-1 bg-purple-50 text-purple-600 rounded-full font-bold">
+            Novo recurso
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2 space-y-4">
+            <div>
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Link da Publicação (Post ou Reel)</label>
+              <input
+                type="text"
+                placeholder="https://www.instagram.com/p/C-XYZ... ou https://www.instagram.com/reel/C-XYZ..."
+                disabled={isRunning}
+                value={postUrl}
+                onChange={(e) => setPostUrl(e.target.value)}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-6 bg-gray-50/50 p-4 rounded-xl border border-gray-100">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={postLike}
+                  disabled={isRunning}
+                  onChange={(e) => setPostLike(e.target.checked)}
+                  className="rounded text-purple-600 focus:ring-purple-500"
+                />
+                Curtir Publicação (com todas as contas)
+              </label>
+
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={postShare}
+                  disabled={isRunning}
+                  onChange={(e) => setPostShare(e.target.checked)}
+                  className="rounded text-purple-600 focus:ring-purple-500"
+                />
+                Compartilhar no Direct (enviar para destinatários selecionados)
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Mín (s)</label>
+                <input
+                  type="number"
+                  disabled={isRunning}
+                  value={postMinDelay}
+                  onChange={(e) => setPostMinDelay(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 text-center font-semibold"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Delay Máx (s)</label>
+                <input
+                  type="number"
+                  disabled={isRunning}
+                  value={postMaxDelay}
+                  onChange={(e) => setPostMaxDelay(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 text-center font-semibold"
+                />
+              </div>
+            </div>
+
+            {postShare && (
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Rotacionar Conta a cada</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    disabled={isRunning}
+                    value={postRotateEvery}
+                    onChange={(e) => setPostRotateEvery(Math.max(1, Number(e.target.value)))}
+                    className="w-16 px-2 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs text-center focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 font-semibold"
+                  />
+                  <span className="text-xs text-gray-500">compartilhamento(s)</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-3 border-t border-gray-50">
+          <button
+            type="button"
+            onClick={isRunning ? handleStop : handlePostActionStart}
+            disabled={botStatus === 'stopping'}
+            className={`font-bold px-6 py-3 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors w-full sm:w-auto ${
+              isRunning
+                ? 'bg-red-600 hover:bg-red-700 text-white'
+                : 'bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20'
+            }`}
+          >
+            {isRunning ? (
+              <>
+                <Square size={16} />
+                <span>PARAR EXECUÇÃO</span>
+              </>
+            ) : (
+              <>
+                <Heart size={16} />
+                <span>INICIAR IMPULSIONAMENTO</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
