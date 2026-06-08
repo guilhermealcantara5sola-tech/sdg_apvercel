@@ -1,12 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layout/MainLayout';
-import Dashboard from './pages/Dashboard';
-import Posts from './pages/Posts';
-import Analytics from './pages/Analytics';
-import Inbox from './pages/Inbox';
 import Broadcast from './pages/Broadcast';
-import Leads from './pages/Leads';
 import Login from './pages/Login';
 import './index.css';
 
