@@ -9,12 +9,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Image, label: 'Posts', path: '/posts' },
-    { icon: BarChart3, label: 'Analytics', path: '/analytics' },
-    { icon: Users, label: 'Seguidores & Leads', path: '/leads' },
-    { icon: MessageSquare, label: 'Interações', path: '/inbox' },
-    { icon: Send, label: 'Disparo Automático', path: '/broadcast' },
+    { icon: Send, label: 'Gestão de Campanhas', path: '/' },
   ];
 
   const handleLogout = () => {

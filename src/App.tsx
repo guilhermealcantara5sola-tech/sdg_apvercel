@@ -41,11 +41,7 @@ function App() {
             )
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="posts" element={<Posts />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="leads" element={<Leads />} />
-          <Route path="inbox" element={<Inbox />} />
+          <Route index element={<Broadcast />} />
           <Route path="broadcast" element={<Broadcast />} />
         </Route>
 
