@@ -408,7 +408,7 @@ const Broadcast: React.FC = () => {
   };
 
   const handlePostActionStart = async () => {
-    if (activeAccounts.length === 0) {
+    if (accounts.length === 0) {
       alert('Por favor, adicione pelo menos uma conta do Instagram para realizar a ação!');
       return;
     }
@@ -445,7 +445,7 @@ const Broadcast: React.FC = () => {
           'X-API-Key': localStorage.getItem('api_token') || ''
         },
         body: JSON.stringify({
-          accounts: activeAccounts,
+          accounts: accounts,
           post_url: postUrl,
           like: postLike,
           share: postShare,
