@@ -14,12 +14,13 @@ const Leads: React.FC = () => {
   const [ageFilter, setAgeFilter] = useState('Todos');
   const [cityFilter, setCityFilter] = useState('Todas');
   const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
+  const [dateFilter, setDateFilter] = useState('Todos');
   const [syncing, setSyncing] = useState(false);
   const [visibleCount, setVisibleCount] = useState(100);
 
   useEffect(() => {
     setVisibleCount(100);
-  }, [searchTerm, genderFilter, ageFilter, cityFilter, followedBackFilter]);
+  }, [searchTerm, genderFilter, ageFilter, cityFilter, followedBackFilter, dateFilter]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -63,8 +64,26 @@ const Leads: React.FC = () => {
     } else if (followedBackFilter === 'Não') {
       matchesFollowedBack = f.followed_back === false;
     }
+
+    let matchesDate = true;
+    if (dateFilter !== 'Todos') {
+      const now = Date.now();
+      const diffMs = now - f.timestamp;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      if (dateFilter === '1D') {
+        matchesDate = diffDays <= 1;
+      } else if (dateFilter === '7D') {
+        matchesDate = diffDays <= 7;
+      } else if (dateFilter === '30D') {
+        matchesDate = diffDays <= 30;
+      } else if (dateFilter === '30D+') {
+        matchesDate = diffDays > 30;
+      } else if (dateFilter === '1A') {
+        matchesDate = diffDays <= 365;
+      }
+    }
     
-    return matchesSearch && matchesGender && matchesAge && matchesCity && matchesFollowedBack;
+    return matchesSearch && matchesGender && matchesAge && matchesCity && matchesFollowedBack && matchesDate;
   });
 
   // Métricas
@@ -270,18 +289,36 @@ const Leads: React.FC = () => {
         </div>
 
         {/* More Filters & Export Row */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pt-4 border-t border-gray-100 gap-4">
-          <div className="w-full sm:w-auto">
-            <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Tipo de Contato</label>
-            <select
-              value={followedBackFilter}
-              onChange={(e) => setFollowedBackFilter(e.target.value)}
-              className="w-full sm:w-64 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
-            >
-              <option value="Todos">Todos (Seguidores + Chats)</option>
-              <option value="Sim">Apenas Seguidores</option>
-              <option value="Não">Apenas Contatos de Direct</option>
-            </select>
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center pt-4 border-t border-gray-100 gap-4">
+          <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+            <div className="w-full sm:w-64">
+              <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Tipo de Contato</label>
+              <select
+                value={followedBackFilter}
+                onChange={(e) => setFollowedBackFilter(e.target.value)}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              >
+                <option value="Todos">Todos (Seguidores + Chats)</option>
+                <option value="Sim">Apenas Seguidores</option>
+                <option value="Não">Apenas Contatos de Direct</option>
+              </select>
+            </div>
+
+            <div className="w-full sm:w-64">
+              <label className="text-xs font-bold text-gray-400 uppercase block mb-1">Período de Cadastro</label>
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+              >
+                <option value="Todos">Todo o Período</option>
+                <option value="1D">Último Dia (24h)</option>
+                <option value="7D">Últimos 7 Dias</option>
+                <option value="30D">Últimos 30 Dias</option>
+                <option value="30D+">Mais de 30 Dias</option>
+                <option value="1A">Último Ano</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-3 w-full sm:w-auto pt-4 sm:pt-0">

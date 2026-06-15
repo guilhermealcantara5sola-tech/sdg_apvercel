@@ -67,6 +67,7 @@ const Broadcast: React.FC = () => {
   const [ageFilter, setAgeFilter] = useState('Todos');
   const [cityFilter, setCityFilter] = useState('Todas');
   const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
+  const [dateFilter, setDateFilter] = useState('Todos');
 
   // Impulsionamento de Postagem
   const [postUrl, setPostUrl] = useState('');
@@ -466,8 +467,26 @@ const Broadcast: React.FC = () => {
     } else if (followedBackFilter === 'Não') {
       matchesFollowedBack = f.followed_back === false;
     }
+
+    let matchesDate = true;
+    if (dateFilter !== 'Todos') {
+      const now = Date.now();
+      const diffMs = now - f.timestamp;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      if (dateFilter === '1D') {
+        matchesDate = diffDays <= 1;
+      } else if (dateFilter === '7D') {
+        matchesDate = diffDays <= 7;
+      } else if (dateFilter === '30D') {
+        matchesDate = diffDays <= 30;
+      } else if (dateFilter === '30D+') {
+        matchesDate = diffDays > 30;
+      } else if (dateFilter === '1A') {
+        matchesDate = diffDays <= 365;
+      }
+    }
     
-    return matchesSearch && matchesGender && matchesAge && matchesCity && matchesFollowedBack;
+    return matchesSearch && matchesGender && matchesAge && matchesCity && matchesFollowedBack && matchesDate;
   });
 
   const toggleLeadSelection = (user: string) => {
@@ -1587,6 +1606,7 @@ const Broadcast: React.FC = () => {
                       setAgeFilter('Todos');
                       setCityFilter('Todas');
                       setFollowedBackFilter('Todos');
+                      setDateFilter('Todos');
                     }}
                     className="text-[10px] text-purple-600 hover:underline font-bold"
                   >
@@ -1597,18 +1617,19 @@ const Broadcast: React.FC = () => {
                   <div>
                     <label className="text-[10px] text-gray-500 block">Gênero</label>
                     <select value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
-                      <option>Todos</option>
-                      <option>Masculino</option>
-                      <option>Feminino</option>
+                      <option value="Todos">Todos</option>
+                      <option value="Homens">Masculino</option>
+                      <option value="Mulheres">Feminino</option>
                     </select>
                   </div>
                   <div>
                     <label className="text-[10px] text-gray-500 block">Idade</label>
                     <select value={ageFilter} onChange={(e) => setAgeFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
-                      <option>Todos</option>
-                      <option>Jovem (&lt;25)</option>
-                      <option>Adulto (25-45)</option>
-                      <option>Sênior (&gt;45)</option>
+                      <option value="Todos">Todos</option>
+                      <option value="Criança">Criança (13-17)</option>
+                      <option value="Jovem">Jovem (18-24)</option>
+                      <option value="Adulto">Adulto (25-54)</option>
+                      <option value="Idoso">Idoso (55+)</option>
                     </select>
                   </div>
                   <div>
@@ -1620,9 +1641,20 @@ const Broadcast: React.FC = () => {
                   <div>
                     <label className="text-[10px] text-gray-500 block">Segue de volta?</label>
                     <select value={followedBackFilter} onChange={(e) => setFollowedBackFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
-                      <option>Todos</option>
-                      <option>Sim</option>
-                      <option>Não</option>
+                      <option value="Todos">Todos</option>
+                      <option value="Sim">Sim</option>
+                      <option value="Não">Não</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[10px] text-gray-500 block">Período de Cadastro</label>
+                    <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="w-full bg-white border border-gray-200 rounded p-1">
+                      <option value="Todos">Todo o Período</option>
+                      <option value="1D">Último Dia (24h)</option>
+                      <option value="7D">Últimos 7 Dias</option>
+                      <option value="30D">Últimos 30 Dias</option>
+                      <option value="30D+">Mais de 30 Dias</option>
+                      <option value="1A">Último Ano</option>
                     </select>
                   </div>
                 </div>
