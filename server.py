@@ -1894,7 +1894,7 @@ if __name__ == '__main__':
     print(" Para acesso externo no Celular/Tablet, execute o ngrok:")
     print("   ngrok http 5000")
     print("")
-    print(f" 🔑 CHAVE DE PAREAMENTO (API TOKEN): {SERVER_TOKEN}")
+    print(f" [TOKEN] CHAVE DE PAREAMENTO (API TOKEN): {SERVER_TOKEN}")
     print("="*70 + "\n")
     
     # Tenta obter a URL do ngrok para pareamento
@@ -1907,13 +1907,13 @@ if __name__ == '__main__':
     pairing_link = f"{vercel_app_url}/broadcast?api_url={target_url}&api_token={SERVER_TOKEN}"
     
     if not ngrok_url:
-        print(" ⚠️  Aviso: Ngrok nao detectado. Usando IP da rede local Wi-Fi.")
+        print(" [!] Aviso: Ngrok nao detectado. Usando IP da rede local Wi-Fi.")
         print(f"     Certifique-se de que o Celular e o PC estao na MESMA rede Wi-Fi.")
     else:
-        print(" 🌐 SUCESSO: Ngrok detectado! Sincronizacao online ativa.")
+        print(" [OK] SUCESSO: Ngrok detectado! Sincronizacao online ativa.")
     print("")
     
-    print("📱 LINK DE PAREAMENTO AUTOMATICO:")
+    print(" [LINK] LINK DE PAREAMENTO AUTOMATICO:")
     print(pairing_link)
     
     try:
