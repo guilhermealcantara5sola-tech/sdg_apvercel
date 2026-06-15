@@ -440,18 +440,69 @@ def infer_demographics(username):
     female_indicators = ['aline', 'ana', 'beatriz', 'barbara', 'carla', 'clara', 'durvalina', 'gabriela', 'julia', 'lara', 'leticia', 'luana', 'maria', 'mariana', 'patricia', 'sara', 'silvia', 'tatiane', 'vanessa', 'vitoria', 'ella', 'ina', 'ria', 'nda', 'isa', 'cia', 'ssa', 'ta', 'a']
     male_indicators = ['adelson', 'alex', 'carlos', 'daniel', 'douglas', 'eduardo', 'felipe', 'gabriel', 'gustavo', 'joao', 'lucas', 'mateus', 'pedro', 'rafael', 'rodrigo', 'tiago', 'vitor', 'one', 'son', 'ton', 'ald', 'er', 'os', 'go', 'o']
     
+    # Explicit list of common Portuguese names to avoid false matches on surnames (e.g. Alcântara, Silva, Sousa)
+    male_names = [
+        'guilherme', 'tiago', 'thiago', 'rodrigo', 'felipe', 'fellype', 'lucas', 'mateus', 'matheus',
+        'pedro', 'rafael', 'vitor', 'victor', 'gabriel', 'gustavo', 'joao', 'carlos', 'daniel',
+        'douglas', 'eduardo', 'bruno', 'marcos', 'andre', 'luiz', 'luis', 'henrique', 'diego',
+        'arthur', 'artur', 'marcelo', 'alexandre', 'otavio', 'leonardo', 'igor', 'ricardo',
+        'renan', 'caio', 'samuel', 'allan', 'alan', 'willian', 'william', 'wellington', 'wesley',
+        'hugo', 'murilo', 'vinicius', 'ramon', 'roberto', 'paulo', 'fernando', 'fabricio',
+        'marcio', 'cleber', 'robson', 'valter', 'mauricio', 'alex', 'leandro', 'alberto',
+        'adriano', 'rogerio', 'claudio', 'renato', 'fabio', 'jefferson', 'george',
+        'nilton', 'newton', 'hamilton', 'milton', 'adelson', 'elton', 'everton', 'cleiton',
+        'wagner', 'valdir', 'anderson', 'alessandro'
+    ]
+    female_names = [
+        'aline', 'ana', 'beatriz', 'barbara', 'carla', 'clara', 'gabriela', 'julia', 'lara',
+        'leticia', 'luana', 'maria', 'mariana', 'patricia', 'sara', 'silvia', 'tatiane',
+        'vanessa', 'vitoria', 'amanda', 'bruna', 'camila', 'carolina', 'fernanda', 'isabela',
+        'juliana', 'larissa', 'luiza', 'nathalia', 'natalia', 'paula', 'rafaela', 'renata',
+        'thais', 'tais', 'bianca', 'debora', 'daniela', 'elaine', 'gisele', 'giovanna',
+        'heloisa', 'isabel', 'jaqueline', 'karina', 'kelly', 'marcela', 'monica', 'nayara',
+        'priscila', 'sabrina', 'talita', 'tatiana', 'valeria', 'viviane', 'adriana', 'claudia',
+        'fabiana', 'andreia', 'andressa', 'cristiane', 'regiane', 'simone', 'solange', 'rosana',
+        'marcia', 'luciana', 'deborah', 'michele', 'michelle', 'caroline', 'karoline', 'alessandra'
+    ]
+    
     username_lower = username.lower()
     
     is_female = False
     is_male = False
     
-    # Check if ends with common female suffix or indicators
-    for indicator in female_indicators:
-        if username_lower.endswith(indicator) or f"_{indicator}" in username_lower or f".{indicator}" in username_lower:
-            is_female = True
+    # Check if starts with a known male or female name (most common for first name)
+    for name in male_names:
+        if username_lower.startswith(name):
+            is_male = True
             break
             
-    if not is_female:
+    if not is_male:
+        for name in female_names:
+            if username_lower.startswith(name):
+                is_female = True
+                break
+                
+    # If not matched by start, check if it contains/ends with name with separators or at the end
+    if not is_male and not is_female:
+        for name in male_names:
+            if username_lower.endswith(name) or f"_{name}" in username_lower or f".{name}" in username_lower:
+                is_male = True
+                break
+                
+    if not is_male and not is_female:
+        for name in female_names:
+            if username_lower.endswith(name) or f"_{name}" in username_lower or f".{name}" in username_lower:
+                is_female = True
+                break
+                
+    # Fallback to general suffix indicators
+    if not is_male and not is_female:
+        for indicator in female_indicators:
+            if username_lower.endswith(indicator) or f"_{indicator}" in username_lower or f".{indicator}" in username_lower:
+                is_female = True
+                break
+                
+    if not is_male and not is_female:
         for indicator in male_indicators:
             if username_lower.endswith(indicator) or f"_{indicator}" in username_lower or f".{indicator}" in username_lower:
                 is_male = True
