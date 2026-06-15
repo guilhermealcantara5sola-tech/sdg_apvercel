@@ -403,6 +403,34 @@ def get_posts():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def get_audio_for_lead(audio_config, username):
+    if not audio_config:
+        return None
+    if isinstance(audio_config, str):
+        return audio_config if os.path.exists(audio_config) else None
+        
+    if isinstance(audio_config, dict):
+        # Infer demographics
+        gender, age_group, age_range, city = infer_demographics(username)
+        
+        # Priority 1: Age group (Jovem, Adulto, etc.)
+        if age_group in audio_config and audio_config[age_group]:
+            path = audio_config[age_group]
+            if os.path.exists(path):
+                return path
+        # Priority 2: Gender (Homens, Mulheres)
+        if gender in audio_config and audio_config[gender]:
+            path = audio_config[gender]
+            if os.path.exists(path):
+                return path
+        # Priority 3: Default (fallback)
+        if 'default' in audio_config and audio_config['default']:
+            path = audio_config['default']
+            if os.path.exists(path):
+                return path
+                
+    return None
+
 def infer_demographics(username):
     # Deterministic hash to distribute attributes consistently
     h = sum(ord(c) for c in username)
@@ -818,9 +846,10 @@ def run_account_thread(account, message_template, account_leads, min_delay, max_
                         bot.client.direct_send(msg_to_send, [int(user_id)])
                         add_log(f"[@{username}] SUCESSO: Mensagem enviada para @{lead_username}")
                     
-                    if audio_path and os.path.exists(audio_path):
-                        add_log(f"[@{username}] Enviando áudio para @{lead_username}...")
-                        bot.client.direct_send_voice(path=audio_path, user_ids=[int(user_id)])
+                    lead_audio = get_audio_for_lead(audio_path, lead_username)
+                    if lead_audio:
+                        add_log(f"[@{username}] Enviando áudio personalizado ({os.path.basename(lead_audio)}) para @{lead_username}...")
+                        bot.client.direct_send_voice(path=lead_audio, user_ids=[int(user_id)])
                         add_log(f"[@{username}] SUCESSO: Áudio enviado para @{lead_username}")
                 
                 with progress_lock:
@@ -979,9 +1008,10 @@ def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rota
                         bot_instance.client.direct_send(msg_to_send, [int(user_id)])
                         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username}")
                     
-                    if audio_path and os.path.exists(audio_path):
-                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Enviando áudio para @{lead_username}...")
-                        bot_instance.client.direct_send_voice(path=audio_path, user_ids=[int(user_id)])
+                    lead_audio = get_audio_for_lead(audio_path, lead_username)
+                    if lead_audio:
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Enviando áudio personalizado ({os.path.basename(lead_audio)}) para @{lead_username}...")
+                        bot_instance.client.direct_send_voice(path=lead_audio, user_ids=[int(user_id)])
                         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Áudio enviado para @{lead_username}")
                 
                 messages_sent_by_current_account += 1

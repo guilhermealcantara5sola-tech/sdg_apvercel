@@ -44,9 +44,10 @@ const Broadcast: React.FC = () => {
   const [sendMode, setSendMode] = useState<'sequential' | 'parallel'>('sequential');
   const [triggerAction, setTriggerAction] = useState<'message' | 'follow' | 'both'>('message');
 
-  // Áudio de Disparo
-  const [audioPath, setAudioPath] = useState('');
+  // Áudio de Disparo (Suporte a múltiplos áudios segmentados)
+  const [audioPath, setAudioPath] = useState<Record<string, string>>({});
   const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [uploadSegment, setUploadSegment] = useState('default');
 
   // Status e Logs
   const [botState, setBotState] = useState<BotState>({
@@ -170,7 +171,11 @@ const Broadcast: React.FC = () => {
         if (typeof camp.post_max_delay === 'number') setPostMaxDelay(camp.post_max_delay);
         if (typeof camp.post_rotate_every === 'number') setPostRotateEvery(camp.post_rotate_every);
         if (typeof camp.send_mode === 'string') setSendMode(camp.send_mode);
-        if (typeof camp.audio_path === 'string') setAudioPath(camp.audio_path);
+        if (typeof camp.audio_path === 'string') {
+          setAudioPath({ default: camp.audio_path });
+        } else if (typeof camp.audio_path === 'object' && camp.audio_path) {
+          setAudioPath(camp.audio_path);
+        }
 
         if (Array.isArray(camp.leads)) {
           setManualLeads(camp.leads.join(', '));
@@ -509,7 +514,7 @@ const Broadcast: React.FC = () => {
     });
   };
 
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>, segmentKey: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -532,11 +537,14 @@ const Broadcast: React.FC = () => {
       }
       
       const result = await response.json();
-      setAudioPath(result.path);
+      setAudioPath(prev => ({
+        ...prev,
+        [segmentKey]: result.path
+      }));
       alert('🎙️ Áudio carregado e processado no computador com sucesso!');
     } catch (err: any) {
       console.error(err);
-      alert(`⚠️ Falha ao carregar áudio: ${err.message || 'Verifique se o servidor Python local está ligado.'}`);
+      alert(`⚠️ Falha ao carregar áudio: ${err.message || 'Verifique se o servidor Python está ligado.'}`);
     } finally {
       setUploadingAudio(false);
     }
@@ -564,7 +572,8 @@ const Broadcast: React.FC = () => {
       return;
     }
 
-    if (triggerAction !== 'follow' && !useGemini && !message && !audioPath) {
+    const hasAudio = Object.values(audioPath).some(path => path);
+    if (triggerAction !== 'follow' && !useGemini && !message && !hasAudio) {
       alert('Por favor, preencha o texto da mensagem ou envie um áudio!');
       return;
     }
@@ -611,7 +620,7 @@ const Broadcast: React.FC = () => {
         action: triggerAction,
         gemini_api_key: useGemini ? geminiApiKey : undefined,
         gemini_prompt: useGemini ? geminiPrompt : undefined,
-        audio_path: audioPath || undefined
+        audio_path: Object.keys(audioPath).length > 0 ? audioPath : undefined
       });
       
       // Inicia o polling
@@ -1027,57 +1036,72 @@ const Broadcast: React.FC = () => {
               )}
 
               {triggerAction !== 'follow' && (
-                <div className="mt-4">
-                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Áudio de Disparo (Opcional)</label>
-                  <div className="flex flex-col gap-3">
-                    {audioPath ? (
-                      <div className="flex items-center justify-between p-4 bg-purple-50/50 border border-purple-100 rounded-2xl transition-all">
-                        <div className="flex items-center gap-3">
-                          <span className="p-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-600/10">
-                            <Volume2 size={18} />
-                          </span>
+                <div className="mt-4 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-gray-500 uppercase">Configuração de Áudios Segmentados</label>
+                    <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-bold">
+                      {Object.keys(audioPath).filter(k => audioPath[k]).length} áudio(s) configurado(s)
+                    </span>
+                  </div>
+
+                  {/* List of configured audios */}
+                  <div className="space-y-2">
+                    {[
+                      { key: 'default', label: 'Padrão / Geral (Todos os Leads)' },
+                      { key: 'Homens', label: 'Homens (Masculino)' },
+                      { key: 'Mulheres', label: 'Mulheres (Feminino)' },
+                      { key: 'Jovem', label: 'Jovens (18-24)' },
+                      { key: 'Adulto', label: 'Adultos (25-54)' }
+                    ].map(segment => {
+                      const path = audioPath[segment.key];
+                      return (
+                        <div key={segment.key} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3.5 bg-gray-50/50 hover:bg-gray-50 rounded-xl border border-gray-100 transition-all gap-3">
                           <div className="text-left">
-                            <p className="text-xs font-bold text-gray-800">Áudio Carregado com Sucesso</p>
-                            <p className="text-[10px] text-gray-500 font-mono truncate max-w-[200px] md:max-w-[350px]" title={audioPath}>
-                              {audioPath.split('/').pop()}
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => { setAudioPath(''); }}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center w-full">
-                        <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-gray-50/80 transition-colors ${uploadingAudio ? 'border-purple-400 bg-purple-50/20' : 'border-gray-200 bg-gray-50/40'}`}>
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-                            {uploadingAudio ? (
-                              <div className="flex items-center gap-2">
-                                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-purple-600"></div>
-                                <span className="text-xs font-semibold text-gray-600">Sincronizando áudio com o servidor...</span>
-                              </div>
+                            <span className="text-xs font-bold text-gray-800 block">{segment.label}</span>
+                            {path ? (
+                              <span className="text-[10px] text-purple-600 font-mono block truncate max-w-[250px] sm:max-w-md" title={path}>
+                                🎙️ {path.split(/[/\\]/).pop()}
+                              </span>
                             ) : (
-                              <>
-                                <UploadCloud size={28} className="text-purple-500/70 mb-1.5" />
-                                <p className="text-xs font-bold text-gray-700">Selecione ou arraste um arquivo de áudio</p>
-                                <p className="text-[10px] text-gray-400 mt-1">Formatos suportados: .m4a, .mp3, .wav (conversão automática)</p>
-                              </>
+                              <span className="text-[10px] text-gray-400 block italic">Nenhum áudio carregado (usa o áudio Padrão)</span>
                             )}
                           </div>
-                          <input 
-                            type="file" 
-                            className="hidden" 
-                            accept="audio/*" 
-                            disabled={isRunning || uploadingAudio} 
-                            onChange={handleAudioUpload} 
-                          />
-                        </label>
-                      </div>
-                    )}
+
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            {path ? (
+                              <button
+                                type="button"
+                                disabled={isRunning}
+                                onClick={() => {
+                                  setAudioPath(prev => {
+                                    const next = { ...prev };
+                                    delete next[segment.key];
+                                    return next;
+                                  });
+                                }}
+                                className="flex-1 sm:flex-initial text-center py-1.5 px-3 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-[10px] font-bold transition-all"
+                              >
+                                Remover Áudio
+                              </button>
+                            ) : (
+                              <label className="flex-1 sm:flex-initial text-center py-1.5 px-3 bg-purple-50 hover:bg-purple-100 text-purple-600 rounded-lg text-[10px] font-bold transition-all cursor-pointer">
+                                {uploadingAudio && uploadSegment === segment.key ? 'Enviando...' : 'Carregar Áudio'}
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="audio/*"
+                                  disabled={isRunning || uploadingAudio}
+                                  onChange={(e) => {
+                                    setUploadSegment(segment.key);
+                                    handleAudioUpload(e, segment.key);
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
