@@ -14,7 +14,6 @@ const Leads: React.FC = () => {
   const [ageFilter, setAgeFilter] = useState('Todos');
   const [cityFilter, setCityFilter] = useState('Todas');
   const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
-  const [showFilters, setShowFilters] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const handleSync = async () => {
