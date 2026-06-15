@@ -757,7 +757,7 @@ def generate_gemini_message(api_key, username, prompt_instruction):
     except Exception as e:
         return f"Erro ao gerar texto com Gemini: {e}"
 
-def run_account_thread(account, message_template, account_leads, min_delay, max_delay, thread_id, action='message', gemini_api_key=None, gemini_prompt=None):
+def run_account_thread(account, message_template, account_leads, min_delay, max_delay, thread_id, action='message', gemini_api_key=None, gemini_prompt=None, audio_path=None):
     global bot_status, bot_progress, bot_instances
     username = account['username'].strip().replace("@", "")
     password = account['password']
@@ -804,18 +804,24 @@ def run_account_thread(account, message_template, account_leads, min_delay, max_
                     
                 if action == 'message' or action == 'both':
                     msg_to_send = message_template
-                    if gemini_api_key and gemini_prompt:
-                        add_log(f"[@{username}] Gerando mensagem personalizada com IA para @{lead_username}...")
-                        generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
-                        if "Erro" in generated:
-                            add_log(f"[@{username}] [Gemini] {generated}. Usando mensagem padrão.")
-                        else:
-                            msg_to_send = generated
-                            add_log(f"[@{username}] [Gemini] Mensagem gerada: \"{msg_to_send}\"")
+                    if msg_to_send:
+                        if gemini_api_key and gemini_prompt:
+                            add_log(f"[@{username}] Gerando mensagem personalizada com IA para @{lead_username}...")
+                            generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
+                            if "Erro" in generated:
+                                add_log(f"[@{username}] [Gemini] {generated}. Usando mensagem padrão.")
+                            else:
+                                msg_to_send = generated
+                                add_log(f"[@{username}] [Gemini] Mensagem gerada: \"{msg_to_send}\"")
 
-                    add_log(f"[@{username}] Enviando mensagem para @{lead_username}...")
-                    bot.client.direct_send(msg_to_send, [int(user_id)])
-                    add_log(f"[@{username}] SUCESSO: Mensagem enviada para @{lead_username}")
+                        add_log(f"[@{username}] Enviando mensagem para @{lead_username}...")
+                        bot.client.direct_send(msg_to_send, [int(user_id)])
+                        add_log(f"[@{username}] SUCESSO: Mensagem enviada para @{lead_username}")
+                    
+                    if audio_path and os.path.exists(audio_path):
+                        add_log(f"[@{username}] Enviando áudio para @{lead_username}...")
+                        bot.client.direct_send_voice(path=audio_path, user_ids=[int(user_id)])
+                        add_log(f"[@{username}] SUCESSO: Áudio enviado para @{lead_username}")
                 
                 with progress_lock:
                     bot_progress["current"] += 1
@@ -834,7 +840,7 @@ def run_account_thread(account, message_template, account_leads, min_delay, max_
     except Exception as e:
         add_log(f"[@{username}] ERRO CRÍTICO na thread: {e}")
 
-def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay, action='message', gemini_api_key=None, gemini_prompt=None):
+def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay, action='message', gemini_api_key=None, gemini_prompt=None, audio_path=None):
     global bot_status, bot_progress, bot_instances
     
     bot_logs.clear()
@@ -856,7 +862,7 @@ def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay
             
         t = threading.Thread(
             target=run_account_thread,
-            args=(acc, message_template, account_leads, min_delay, max_delay, i + 1, action, gemini_api_key, gemini_prompt)
+            args=(acc, message_template, account_leads, min_delay, max_delay, i + 1, action, gemini_api_key, gemini_prompt, audio_path)
         )
         t.daemon = True
         threads.append(t)
@@ -874,7 +880,7 @@ def run_parallel_threads(accounts, message_template, leads, min_delay, max_delay
         add_log("Processamento paralelo concluído com sucesso!")
 
 # Execução do robô em thread
-def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rotate_every=1, action='message', gemini_api_key=None, gemini_prompt=None):
+def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rotate_every=1, action='message', gemini_api_key=None, gemini_prompt=None, audio_path=None):
     global bot_instance, bot_status, bot_progress, bot_logs
     
     bot_logs.clear()
@@ -959,18 +965,24 @@ def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rota
                     
                 if action == 'message' or action == 'both':
                     msg_to_send = message_template
-                    if gemini_api_key and gemini_prompt:
-                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Gerando mensagem personalizada com IA para @{lead_username}...")
-                        generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
-                        if "Erro" in generated:
-                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] {generated}. Usando mensagem padrão.")
-                        else:
-                            msg_to_send = generated
-                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] Mensagem gerada: \"{msg_to_send}\"")
+                    if msg_to_send:
+                        if gemini_api_key and gemini_prompt:
+                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Gerando mensagem personalizada com IA para @{lead_username}...")
+                            generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
+                            if "Erro" in generated:
+                                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] {generated}. Usando mensagem padrão.")
+                            else:
+                                msg_to_send = generated
+                                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] Mensagem gerada: \"{msg_to_send}\"")
 
-                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Enviando mensagem para @{lead_username}...")
-                    bot_instance.client.direct_send(msg_to_send, [int(user_id)])
-                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username}")
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Enviando mensagem para @{lead_username}...")
+                        bot_instance.client.direct_send(msg_to_send, [int(user_id)])
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Mensagem enviada para @{lead_username}")
+                    
+                    if audio_path and os.path.exists(audio_path):
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Enviando áudio para @{lead_username}...")
+                        bot_instance.client.direct_send_voice(path=audio_path, user_ids=[int(user_id)])
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Áudio enviado para @{lead_username}")
                 
                 messages_sent_by_current_account += 1
                 
@@ -997,11 +1009,11 @@ def run_bot_thread(accounts, message_template, leads, min_delay, max_delay, rota
         bot_status = "error"
         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO FATAL: {e}")
 
-def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every=1, gemini_api_key=None, gemini_prompt=None):
+def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every=1, gemini_api_key=None, gemini_prompt=None, comment=False, comment_text=""):
     global bot_instance, bot_status, bot_progress, bot_logs
     
     bot_logs.clear()
-    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Iniciando automação de postagem (Curtir/Compartilhar)...")
+    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Iniciando automação de postagem (Curtir/Compartilhar/Comentar)...")
     bot_status = "running"
     
     try:
@@ -1011,7 +1023,7 @@ def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, ma
         liked_accounts = set()
         media_id = None
         
-        if not share:
+        if not share and not comment:
             # Apenas curtir com todas as contas
             bot_progress = {"current": 0, "total": len(accounts), "current_user": ""}
             for idx, acc in enumerate(accounts):
@@ -1053,7 +1065,7 @@ def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, ma
                             break
                         time.sleep(1)
         else:
-            # Curtir e/ou Compartilhar com leads
+            # Curtir, Compartilhar e/ou Comentar com leads
             bot_progress = {"current": 0, "total": len(leads), "current_user": ""}
             current_account_index = 0
             shares_sent_by_current_account = 0
@@ -1123,7 +1135,7 @@ def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, ma
                     except Exception as ex:
                         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao curtir com @{logged_in_username}: {ex}")
                         
-                # Compartilhar o post com o lead
+                # Ação (Compartilhar e/ou Comentar) com o lead
                 bot_progress["current"] = i + 1
                 bot_progress["current_user"] = lead_username
                 
@@ -1131,24 +1143,37 @@ def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, ma
                     if not media_id:
                         media_pk = bot_instance.client.media_pk_from_url(post_url)
                         media_id = bot_instance.client.media_id(media_pk)
-                    user_id = bot_instance.client.user_id_from_username(lead_username)
                     
-                    text_to_send = ""
-                    if gemini_api_key and gemini_prompt:
-                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Gerando comentário personalizado com IA para @{lead_username}...")
-                        generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
-                        if "Erro" not in generated:
-                            text_to_send = generated
-                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] Comentário gerado: \"{text_to_send}\"")
-                            
-                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Compartilhando post com @{lead_username}...")
-                    bot_instance.client.direct_media_share(media_id, [int(user_id)])
-                    if text_to_send:
-                        bot_instance.client.direct_send(text_to_send, [int(user_id)])
-                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Post compartilhado com @{lead_username}")
+                    action_done = False
                     
-                    shares_sent_by_current_account += 1
-                    
+                    if share:
+                        user_id = bot_instance.client.user_id_from_username(lead_username)
+                        text_to_send = ""
+                        if gemini_api_key and gemini_prompt:
+                            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Gerando comentário personalizado com IA para @{lead_username}...")
+                            generated = generate_gemini_message(gemini_api_key, lead_username, gemini_prompt)
+                            if "Erro" not in generated:
+                                text_to_send = generated
+                                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [Gemini] Comentário gerado: \"{text_to_send}\"")
+                                
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Compartilhando post com @{lead_username}...")
+                        bot_instance.client.direct_media_share(media_id, [int(user_id)])
+                        if text_to_send:
+                            bot_instance.client.direct_send(text_to_send, [int(user_id)])
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Post compartilhado com @{lead_username}")
+                        action_done = True
+                        
+                    if comment:
+                        # Comentar no post marcando o lead
+                        comment_to_send = f"{comment_text} @{lead_username}" if comment_text else f"@{lead_username}"
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{logged_in_username}] Comentando no post: \"{comment_to_send}\"")
+                        bot_instance.client.media_comment(media_id, comment_to_send)
+                        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Comentário realizado marcando @{lead_username}")
+                        action_done = True
+                        
+                    if action_done:
+                        shares_sent_by_current_account += 1
+                        
                     delay = random.randint(min_delay, max_delay)
                     bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Aguardando {delay} segundos...")
                     for _ in range(delay):
@@ -1156,7 +1181,7 @@ def run_post_action_thread(accounts, post_url, like, share, leads, min_delay, ma
                             break
                         time.sleep(1)
                 except Exception as ex:
-                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao compartilhar com @{lead_username} usando @{logged_in_username}: {ex}")
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao processar @{lead_username} usando @{logged_in_username}: {ex}")
                     shares_sent_by_current_account = rotate_every
                     time.sleep(5)
                     
@@ -1181,6 +1206,8 @@ def bot_post_action():
     post_url = data.get('post_url')
     like = bool(data.get('like', False))
     share = bool(data.get('share', False))
+    comment = bool(data.get('comment', False))
+    comment_text = data.get('comment_text', '')
     leads = data.get('leads', [])
     min_delay = int(data.get('min_delay', 5))
     max_delay = int(data.get('max_delay', 15))
@@ -1191,11 +1218,11 @@ def bot_post_action():
     if not post_url:
         return jsonify({"error": "Forneça o link da publicação do Instagram."}), 400
         
-    if not like and not share:
-        return jsonify({"error": "Selecione pelo menos uma ação (Curtir ou Compartilhar)."}), 400
+    if not like and not share and not comment:
+        return jsonify({"error": "Selecione pelo menos uma ação (Curtir, Compartilhar ou Comentar)."}), 400
         
-    if share and not leads:
-        return jsonify({"error": "Forneça pelo menos um lead para compartilhar o post."}), 400
+    if (share or comment) and not leads:
+        return jsonify({"error": "Forneça pelo menos um lead para compartilhar ou comentar no post."}), 400
         
     # Contas
     accounts = data.get('accounts', [])
@@ -1214,12 +1241,65 @@ def bot_post_action():
         
     bot_thread = threading.Thread(
         target=run_post_action_thread,
-        args=(resolved_accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every, gemini_api_key, gemini_prompt)
+        args=(resolved_accounts, post_url, like, share, leads, min_delay, max_delay, rotate_every, gemini_api_key, gemini_prompt, comment, comment_text)
     )
     bot_thread.daemon = True
     bot_thread.start()
     
     return jsonify({"status": "started"})
+
+# Rota para upload de áudio
+@app.route('/api/upload-audio', methods=['POST'])
+def upload_audio():
+    if 'audio' not in request.files:
+        return jsonify({"error": "Nenhum arquivo enviado"}), 400
+    file = request.files['audio']
+    if file.filename == '':
+        return jsonify({"error": "Nome de arquivo vazio"}), 400
+        
+    # Salva na pasta 'uploads'
+    uploads_dir = os.path.join(BASE_DIR, 'uploads')
+    os.makedirs(uploads_dir, exist_ok=True)
+    
+    # Gera um nome seguro
+    ext = os.path.splitext(file.filename)[1].lower()
+    filename = f"audio_{int(time.time())}{ext}"
+    file_path = os.path.join(uploads_dir, filename)
+    file.save(file_path)
+    
+    # Se for MP3 ou WAV, tenta converter para M4A se o ffmpeg estiver disponível
+    final_path = file_path
+    if ext != '.m4a' and ext != '.aac':
+        converted_filename = f"audio_{int(time.time())}.m4a"
+        converted_path = os.path.join(uploads_dir, converted_filename)
+        import subprocess
+        try:
+            # Tenta usar o ffmpeg para converter
+            result = subprocess.run(
+                ['ffmpeg', '-y', '-i', file_path, '-c:a', 'aac', '-b:a', '128k', converted_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            if result.returncode == 0 and os.path.exists(converted_path):
+                final_path = converted_path
+                try:
+                    os.remove(file_path)
+                except Exception:
+                    pass
+                filename = converted_filename
+                ext = '.m4a'
+            else:
+                print(f"Falha na conversão ffmpeg: {result.stderr}")
+        except Exception as e:
+            print(f"FFmpeg não disponível ou erro na conversão: {e}")
+            
+    return jsonify({
+        "status": "success",
+        "filename": filename,
+        "path": final_path.replace('\\', '/'),
+        "format": ext
+    })
 
 # Iniciar disparo
 @app.route('/api/bot/start', methods=['POST'])
@@ -1233,6 +1313,7 @@ def bot_start():
     leads = data.get('leads', [])
     min_delay = int(data.get('min_delay', 60))
     max_delay = int(data.get('max_delay', 120))
+    audio_path = data.get('audio_path')
     
     # Obter lista de contas ou única conta
     accounts = data.get('accounts', [])
@@ -1263,25 +1344,25 @@ def bot_start():
             if acc_username not in saved_accounts or saved_accounts[acc_username] != acc_password:
                 saved_accounts[acc_username] = acc_password
                 save_accounts(saved_accounts)
-
+ 
     action = data.get('action', 'message')
     mode = data.get('mode', 'sequential')
     gemini_api_key = data.get('gemini_api_key')
     gemini_prompt = data.get('gemini_prompt')
-
-    needs_message = (action != 'follow') and not (gemini_api_key and gemini_prompt)
-    if not resolved_accounts or (needs_message and not message) or not leads:
-        return jsonify({"error": "Preencha as contas de disparo (com senhas enviadas ou salvas no PC), mensagem (caso vá enviar) e passe pelo menos um lead."}), 400
+ 
+    needs_content = (action != 'follow') and not (gemini_api_key and gemini_prompt) and not audio_path
+    if not resolved_accounts or (needs_content and not message) or not leads:
+        return jsonify({"error": "Preencha as contas de disparo, insira uma mensagem ou um áudio de disparo, e passe pelo menos um lead."}), 400
     
     if mode == 'parallel':
         bot_thread = threading.Thread(
             target=run_parallel_threads, 
-            args=(resolved_accounts, message, leads, min_delay, max_delay, action, gemini_api_key, gemini_prompt)
+            args=(resolved_accounts, message, leads, min_delay, max_delay, action, gemini_api_key, gemini_prompt, audio_path)
         )
     else:
         bot_thread = threading.Thread(
             target=run_bot_thread, 
-            args=(resolved_accounts, message, leads, min_delay, max_delay, rotate_every, action, gemini_api_key, gemini_prompt)
+            args=(resolved_accounts, message, leads, min_delay, max_delay, rotate_every, action, gemini_api_key, gemini_prompt, audio_path)
         )
     bot_thread.daemon = True
     bot_thread.start()
@@ -1545,7 +1626,7 @@ def run_headless_campaign():
     campaign_type = camp.get('campaign_type')
     if not campaign_type:
         # Fallback para compatibilidade anterior
-        if camp.get('post_url') and (camp.get('like') or camp.get('share')):
+        if camp.get('post_url') and (camp.get('like') or camp.get('share') or camp.get('comment')):
             campaign_type = 'post_action'
         elif camp.get('action') == 'follow':
             campaign_type = 'follow'
@@ -1560,6 +1641,8 @@ def run_headless_campaign():
         
     like = bool(camp.get('like', False))
     share = bool(camp.get('share', False))
+    comment = bool(camp.get('comment', False))
+    comment_text = camp.get('comment_text', '')
     
     # 1. Resolver contas
     accounts = camp.get('accounts', [])
@@ -1591,8 +1674,8 @@ def run_headless_campaign():
             except Exception as e:
                 print(f"[-] Erro ao ler 'leads.txt': {e}")
                 
-    # Precisa de leads se a ação enviar mensagem ou se for compartilhar post
-    needs_leads = (action in ('message', 'both')) or share
+    # Precisa de leads se a ação enviar mensagem ou se for compartilhar/comentar post
+    needs_leads = (action in ('message', 'both')) or share or comment
     if needs_leads and not leads:
         print("\n[-] Nenhum destinatário carregado de 'campanha.json' ou 'leads.txt'.")
         leads_input = input("[?] Digite os arrobas dos destinatários (separados por vírgula): ")
@@ -1623,12 +1706,12 @@ def run_headless_campaign():
             input("\nPressione ENTER para fechar...")
             return
             
-    # 5. Resolver URL do Post (caso seja curtir ou compartilhar)
+    # 5. Resolver URL do Post (caso seja curtir, compartilhar ou comentar)
     post_url = camp.get('post_url', '')
-    if (like or share) and not post_url:
+    if (like or share or comment) and not post_url:
         post_url = input("\n[?] Digite o link da publicação do Instagram (Post ou Reel): ").strip()
         if not post_url:
-            print("[-] Link da publicação obrigatório para curtir/compartilhar. Cancelando.")
+            print("[-] Link da publicação obrigatório para curtir/compartilhar/comentar. Cancelando.")
             input("\nPressione ENTER para fechar...")
             return
 
@@ -1644,7 +1727,7 @@ def run_headless_campaign():
     if campaign_type == 'post_action':
         if post_url:
             print(f"    - Publicação: {post_url}")
-        print(f"    - Curtir: {'Sim' if like else 'Não'}, Compartilhar: {'Sim' if share else 'Não'}")
+        print(f"    - Curtir: {'Sim' if like else 'Não'}, Compartilhar: {'Sim' if share else 'Não'}, Comentar: {'Sim' if comment else 'Não'}")
     elif campaign_type == 'follow':
         print(f"    - Ação: Apenas Seguir Usuários")
     else:
@@ -1683,7 +1766,9 @@ def run_headless_campaign():
                 max_delay=max_delay,
                 rotate_every=rotate_every,
                 gemini_api_key=gemini_api_key,
-                gemini_prompt=gemini_prompt
+                gemini_prompt=gemini_prompt,
+                comment=comment,
+                comment_text=comment_text
             )
         else:
             run_bot_thread(
@@ -1695,7 +1780,8 @@ def run_headless_campaign():
                 rotate_every=rotate_every,
                 action='follow' if campaign_type == 'follow' else action,
                 gemini_api_key=gemini_api_key if campaign_type != 'follow' else None,
-                gemini_prompt=gemini_prompt if campaign_type != 'follow' else None
+                gemini_prompt=gemini_prompt if campaign_type != 'follow' else None,
+                audio_path=camp.get('audio_path')
             )
     except KeyboardInterrupt:
         print("\n[-] Interrompido pelo usuário.")

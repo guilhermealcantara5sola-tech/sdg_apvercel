@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2, Save, Upload, Settings } from 'lucide-react';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2, Save, Upload, Settings, Volume2, UploadCloud } from 'lucide-react';
 
 interface BotState {
   status: string;
@@ -44,6 +44,10 @@ const Broadcast: React.FC = () => {
   const [sendMode, setSendMode] = useState<'sequential' | 'parallel'>('sequential');
   const [triggerAction, setTriggerAction] = useState<'message' | 'follow' | 'both'>('message');
 
+  // Áudio de Disparo
+  const [audioPath, setAudioPath] = useState('');
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+
   // Status e Logs
   const [botState, setBotState] = useState<BotState>({
     status: 'offline',
@@ -68,6 +72,8 @@ const Broadcast: React.FC = () => {
   const [postUrl, setPostUrl] = useState('');
   const [postLike, setPostLike] = useState(true);
   const [postShare, setPostShare] = useState(false);
+  const [postComment, setPostComment] = useState(false);
+  const [postCommentText, setPostCommentText] = useState('');
   const [postMinDelay, setPostMinDelay] = useState(5);
   const [postMaxDelay, setPostMaxDelay] = useState(15);
   const [postRotateEvery, setPostRotateEvery] = useState(1);
@@ -134,6 +140,8 @@ const Broadcast: React.FC = () => {
           setActiveTab('posts');
           if (typeof camp.like === 'boolean') setPostLike(camp.like);
           if (typeof camp.share === 'boolean') setPostShare(camp.share);
+          if (typeof camp.comment === 'boolean') setPostComment(camp.comment);
+          if (typeof camp.comment_text === 'string') setPostCommentText(camp.comment_text);
           if (typeof camp.post_min_delay === 'number') setPostMinDelay(camp.post_min_delay);
           else if (typeof camp.min_delay === 'number') setPostMinDelay(camp.min_delay);
           
@@ -155,10 +163,13 @@ const Broadcast: React.FC = () => {
         if (typeof camp.post_url === 'string') setPostUrl(camp.post_url);
         if (typeof camp.like === 'boolean') setPostLike(camp.like);
         if (typeof camp.share === 'boolean') setPostShare(camp.share);
+        if (typeof camp.comment === 'boolean') setPostComment(camp.comment);
+        if (typeof camp.comment_text === 'string') setPostCommentText(camp.comment_text);
         if (typeof camp.post_min_delay === 'number') setPostMinDelay(camp.post_min_delay);
         if (typeof camp.post_max_delay === 'number') setPostMaxDelay(camp.post_max_delay);
         if (typeof camp.post_rotate_every === 'number') setPostRotateEvery(camp.post_rotate_every);
         if (typeof camp.send_mode === 'string') setSendMode(camp.send_mode);
+        if (typeof camp.audio_path === 'string') setAudioPath(camp.audio_path);
 
         if (Array.isArray(camp.leads)) {
           setManualLeads(camp.leads.join(', '));
@@ -193,6 +204,7 @@ const Broadcast: React.FC = () => {
       campData.gemini_prompt = geminiPrompt;
       campData.send_mode = sendMode;
       campData.leads = includeLeads ? allLeads : [];
+      campData.audio_path = audioPath || undefined;
     } else if (exportCampaignType === 'follow') {
       campData.min_delay = minDelay;
       campData.max_delay = maxDelay;
@@ -203,6 +215,8 @@ const Broadcast: React.FC = () => {
       campData.post_url = includePostUrl ? postUrl : "";
       campData.like = postLike;
       campData.share = postShare;
+      campData.comment = postComment;
+      campData.comment_text = postCommentText;
       campData.min_delay = postMinDelay;
       campData.max_delay = postMaxDelay;
       campData.rotate_every = postRotateEvery;
@@ -476,6 +490,39 @@ const Broadcast: React.FC = () => {
     });
   };
 
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingAudio(true);
+    const formData = new FormData();
+    formData.append('audio', file);
+    
+    try {
+      const response = await fetch(`${apiUrl}/api/upload-audio`, {
+        method: 'POST',
+        headers: {
+          'X-API-Key': apiToken
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erro ao enviar áudio');
+      }
+      
+      const result = await response.json();
+      setAudioPath(result.path);
+      alert('🎙️ Áudio carregado e processado no computador com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      alert(`⚠️ Falha ao carregar áudio: ${err.message || 'Verifique se o servidor Python local está ligado.'}`);
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
+
   const handleStart = async () => {
     let activeAccounts = [...accounts];
     
@@ -498,8 +545,8 @@ const Broadcast: React.FC = () => {
       return;
     }
 
-    if (triggerAction !== 'follow' && !useGemini && !message) {
-      alert('Por favor, preencha o texto da mensagem!');
+    if (triggerAction !== 'follow' && !useGemini && !message && !audioPath) {
+      alert('Por favor, preencha o texto da mensagem ou envie um áudio!');
       return;
     }
 
@@ -531,7 +578,7 @@ const Broadcast: React.FC = () => {
       setBotState(prev => ({ 
         ...prev, 
         status: 'running', 
-        logs: prev?.logs ? [...prev.logs, `Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction}${useGemini ? ', com Gemini IA' : ''})...`] : [`Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction}${useGemini ? ', com Gemini IA' : ''})...`] 
+        logs: prev?.logs ? [...prev.logs, `Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction}${useGemini ? ', com Gemini IA' : ''}${audioPath ? ', com áudio' : ''})...`] : [`Iniciando robô (Modo: ${sendMode === 'parallel' ? 'paralelo' : 'sequencial'}, Ação: ${triggerAction}${useGemini ? ', com Gemini IA' : ''}${audioPath ? ', com áudio' : ''})...`] 
       }));
       
       await startBot({
@@ -544,7 +591,8 @@ const Broadcast: React.FC = () => {
         mode: sendMode,
         action: triggerAction,
         gemini_api_key: useGemini ? geminiApiKey : undefined,
-        gemini_prompt: useGemini ? geminiPrompt : undefined
+        gemini_prompt: useGemini ? geminiPrompt : undefined,
+        audio_path: audioPath || undefined
       });
       
       // Inicia o polling
@@ -583,8 +631,13 @@ const Broadcast: React.FC = () => {
     // Junta com seguidores selecionados
     const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
 
-    if (postShare && allLeads.length === 0) {
-      alert('Por favor, selecione ao menos um destinatário para o compartilhamento!');
+    if (!postLike && !postShare && !postComment) {
+      alert('Selecione ao menos uma ação (Curtir, Compartilhar ou Comentar)!');
+      return;
+    }
+
+    if ((postShare || postComment) && allLeads.length === 0) {
+      alert('Por favor, selecione ao menos um destinatário para o compartilhamento ou comentário!');
       return;
     }
 
@@ -593,11 +646,16 @@ const Broadcast: React.FC = () => {
       return;
     }
 
+    if (postComment && !postCommentText.trim()) {
+      alert('Por favor, preencha o texto do comentário!');
+      return;
+    }
+
     try {
       setBotState(prev => ({ 
         ...prev, 
         status: 'running', 
-        logs: prev?.logs ? [...prev.logs, `Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'}${postShare && useGemini ? ', com Gemini IA' : ''})...`] : [`Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'}${postShare && useGemini ? ', com Gemini IA' : ''})...`] 
+        logs: prev?.logs ? [...prev.logs, `Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'}, Comentar: ${postComment ? 'Sim' : 'Não'}${postShare && useGemini ? ', com Gemini IA' : ''})...`] : [`Iniciando impulsionamento do post (Curtir: ${postLike ? 'Sim' : 'Não'}, Compartilhar: ${postShare ? 'Sim' : 'Não'}, Comentar: ${postComment ? 'Sim' : 'Não'}${postShare && useGemini ? ', com Gemini IA' : ''})...`] 
       }));
 
       const res = await fetch(`${localStorage.getItem('api_base_url') || 'http://localhost:5000'}/api/bot/post-action`, {
@@ -611,6 +669,8 @@ const Broadcast: React.FC = () => {
           post_url: postUrl,
           like: postLike,
           share: postShare,
+          comment: postComment,
+          comment_text: postCommentText,
           leads: allLeads,
           min_delay: postMinDelay,
           max_delay: postMaxDelay,
@@ -947,6 +1007,62 @@ const Broadcast: React.FC = () => {
                 </div>
               )}
 
+              {triggerAction !== 'follow' && (
+                <div className="mt-4">
+                  <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Áudio de Disparo (Opcional)</label>
+                  <div className="flex flex-col gap-3">
+                    {audioPath ? (
+                      <div className="flex items-center justify-between p-4 bg-purple-50/50 border border-purple-100 rounded-2xl transition-all">
+                        <div className="flex items-center gap-3">
+                          <span className="p-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-600/10">
+                            <Volume2 size={18} />
+                          </span>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-gray-800">Áudio Carregado com Sucesso</p>
+                            <p className="text-[10px] text-gray-500 font-mono truncate max-w-[200px] md:max-w-[350px]" title={audioPath}>
+                              {audioPath.split('/').pop()}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setAudioPath(''); }}
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center w-full">
+                        <label className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-gray-50/80 transition-colors ${uploadingAudio ? 'border-purple-400 bg-purple-50/20' : 'border-gray-200 bg-gray-50/40'}`}>
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                            {uploadingAudio ? (
+                              <div className="flex items-center gap-2">
+                                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-purple-600"></div>
+                                <span className="text-xs font-semibold text-gray-600">Sincronizando áudio com o servidor...</span>
+                              </div>
+                            ) : (
+                              <>
+                                <UploadCloud size={28} className="text-purple-500/70 mb-1.5" />
+                                <p className="text-xs font-bold text-gray-700">Selecione ou arraste um arquivo de áudio</p>
+                                <p className="text-[10px] text-gray-400 mt-1">Formatos suportados: .m4a, .mp3, .wav (conversão automática)</p>
+                              </>
+                            )}
+                          </div>
+                          <input 
+                            type="file" 
+                            className="hidden" 
+                            accept="audio/*" 
+                            disabled={isRunning || uploadingAudio} 
+                            onChange={handleAudioUpload} 
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Modo de Envio */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -1111,9 +1227,39 @@ const Broadcast: React.FC = () => {
                         onChange={(e) => setPostShare(e.target.checked)}
                         className="rounded text-purple-600 focus:ring-purple-500"
                       />
-                      Compartilhar no Direct (enviar para destinatários selecionados)
+                      Compartilhar no Direct
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={postComment}
+                        disabled={isRunning}
+                        onChange={(e) => setPostComment(e.target.checked)}
+                        className="rounded text-purple-600 focus:ring-purple-500"
+                      />
+                      Comentar no Post (marcar destinatários)
                     </label>
                   </div>
+
+                  {postComment && (
+                    <div className="bg-gray-50/30 p-4 rounded-xl border border-gray-100 space-y-2">
+                      <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                        Texto do Comentário
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Ex: Confere essa novidade! ou Parabéns pelo post,"
+                        disabled={isRunning}
+                        value={postCommentText}
+                        onChange={(e) => setPostCommentText(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-none font-medium text-gray-700"
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        Dica: O robô enviará este comentário e marcará "@usuario" no final para cada destinatário selecionado.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-4">
@@ -1634,7 +1780,7 @@ const Broadcast: React.FC = () => {
                 className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
               >
                 <option value="messages">✉️ Enviar Mensagens (Directs)</option>
-                <option value="post_action">🚀 Impulsionar Post (Curtir & Compartilhar)</option>
+                <option value="post_action">🚀 Impulsionar Post (Curtir, Compartilhar & Comentar)</option>
                 <option value="follow">👤 Apenas Seguir Perfis</option>
               </select>
             </div>

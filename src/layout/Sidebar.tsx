@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Send, Settings, LogOut, X } from 'lucide-react';
+import { Home, Send, MessageSquare, Users, Grid, BarChart2, Settings, LogOut, X } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -9,7 +9,12 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navItems = [
-    { icon: Send, label: 'Gestão de Campanhas', path: '/' },
+    { icon: Home, label: 'Início', path: '/' },
+    { icon: Send, label: 'Campanhas', path: '/broadcast' },
+    { icon: MessageSquare, label: 'Conversas', path: '/inbox' },
+    { icon: Users, label: 'Gestão de Leads', path: '/leads' },
+    { icon: Grid, label: 'Postagens', path: '/posts' },
+    { icon: BarChart2, label: 'Desempenho', path: '/analytics' },
   ];
 
   const handleLogout = () => {
