@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { fetchFollowers, fetchBotStatus, startBot, stopBot, fetchSavedAccounts, addSavedAccount, deleteSavedAccount } from '../utils/api';
-import { Send, Play, Square, Users, AlertCircle, Terminal, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2, Save, Upload, Settings, Volume2, UploadCloud } from 'lucide-react';
+import { Send, Play, Square, Users, AlertCircle, Terminal, Plus, Trash2, Filter, RotateCw, Download, Heart, Share2, Save, Upload, Settings } from 'lucide-react';
 
 interface BotState {
   status: string;
