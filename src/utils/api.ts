@@ -24,6 +24,43 @@ const getHeaders = (extraHeaders: Record<string, string> = {}) => {
 const SUPABASE_URL = "https://rtnzazrlgpdcgrkvhpvx.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0bnphenJsZ3BkY2dya3ZocHZ4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDcxMjk5NywiZXhwIjoyMDk2Mjg4OTk3fQ.gIfhKCBcwbg7euJh6T6f04AT_LNgUqJ5WE4mTZ0iGJM";
 
+export async function fetchAllLeadsFromSupabase() {
+  const followers: any[] = [];
+  let offset = 0;
+  const limit = 1000;
+  let hasMore = true;
+
+  while (hasMore) {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=username.asc&limit=${limit}&offset=${offset}`, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (!res.ok) throw new Error('Failed to fetch from Supabase');
+    const data = await res.json();
+    if (data.length === 0) {
+      hasMore = false;
+    } else {
+      const mapped = data.map((lead: any) => ({
+        username: lead.username,
+        timestamp: lead.followed_at ? new Date(lead.followed_at).getTime() : Date.now(),
+        followed_back: lead.is_follower !== false,
+        gender: lead.gender || (sumCharCodes(lead.username) % 100 < 52 ? "Mulheres" : "Homens"),
+        age_group: lead.age_range || inferAgeGroup(lead.username),
+        city: lead.city || inferCity(lead.username)
+      }));
+      followers.push(...mapped);
+      if (data.length < limit) {
+        hasMore = false;
+      } else {
+        offset += limit;
+      }
+    }
+  }
+  return followers;
+}
+
 export async function fetchStatsFromSupabase() {
   let profileMetric = {
     total_followers: 1152,
@@ -52,23 +89,7 @@ export async function fetchStatsFromSupabase() {
 
   let followers: any[] = [];
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=username.asc&limit=10000`, {
-      headers: {
-        "apikey": SUPABASE_KEY,
-        "Authorization": `Bearer ${SUPABASE_KEY}`
-      }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      followers = data.map((lead: any) => ({
-        username: lead.username,
-        timestamp: lead.followed_at ? new Date(lead.followed_at).getTime() : Date.now(),
-        followed_back: lead.is_follower !== false,
-        gender: lead.gender || (sumCharCodes(lead.username) % 100 < 52 ? "Mulheres" : "Homens"),
-        age_group: lead.age_range || inferAgeGroup(lead.username),
-        city: lead.city || inferCity(lead.username)
-      }));
-    }
+    followers = await fetchAllLeadsFromSupabase();
   } catch (e) {
     console.warn("Could not fetch followers from Supabase for stats", e);
   }
@@ -405,30 +426,18 @@ function inferCity(username: string): string {
 }
 
 export async function fetchFollowersFromSupabase() {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=username.asc&limit=10000`, {
-    headers: {
-      "apikey": SUPABASE_KEY,
-      "Authorization": `Bearer ${SUPABASE_KEY}`
-    }
-  });
-  if (!res.ok) throw new Error('Failed to fetch from Supabase');
-  const data = await res.json();
-  
-  const followers = data.map((lead: any) => ({
-    username: lead.username,
-    timestamp: lead.followed_at ? new Date(lead.followed_at).getTime() : Date.now(),
-    followed_back: lead.is_follower !== false,
-    gender: lead.gender || (sumCharCodes(lead.username) % 100 < 52 ? "Mulheres" : "Homens"),
-    age_group: lead.age_range || inferAgeGroup(lead.username),
-    city: lead.city || inferCity(lead.username)
-  }));
-
-  return {
-    followers,
-    following: followers.slice(0, 25),
-    total_followers: followers.length,
-    total_following: Math.min(25, followers.length)
-  };
+  try {
+    const followers = await fetchAllLeadsFromSupabase();
+    return {
+      followers,
+      following: followers.slice(0, 25),
+      total_followers: followers.length,
+      total_following: Math.min(25, followers.length)
+    };
+  } catch (e) {
+    console.error("Error in fetchFollowersFromSupabase:", e);
+    throw e;
+  }
 }
 
 export async function fetchFollowers() {

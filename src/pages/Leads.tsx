@@ -15,6 +15,11 @@ const Leads: React.FC = () => {
   const [cityFilter, setCityFilter] = useState('Todas');
   const [followedBackFilter, setFollowedBackFilter] = useState('Todos');
   const [syncing, setSyncing] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(100);
+
+  useEffect(() => {
+    setVisibleCount(100);
+  }, [searchTerm, genderFilter, ageFilter, cityFilter, followedBackFilter]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -318,7 +323,7 @@ const Leads: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredFollowers.map((follower) => (
+                  {filteredFollowers.slice(0, visibleCount).map((follower) => (
                     <tr key={follower.username} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -383,7 +388,7 @@ const Leads: React.FC = () => {
 
             {/* Mobile Cards View */}
             <div className="block md:hidden divide-y divide-gray-100">
-              {filteredFollowers.map((follower) => (
+              {filteredFollowers.slice(0, visibleCount).map((follower) => (
                 <div key={follower.username} className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -445,6 +450,16 @@ const Leads: React.FC = () => {
                 </div>
               ))}
             </div>
+            {filteredFollowers.length > visibleCount && (
+              <div className="flex justify-center p-6 bg-gray-50/50 border-t border-gray-100">
+                <button
+                  onClick={() => setVisibleCount(prev => prev + 200)}
+                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-sm transition-all shadow-sm hover:shadow hover:-translate-y-0.5 active:translate-y-0"
+                >
+                  Carregar mais 200 leads (Exibindo {Math.min(visibleCount, filteredFollowers.length)} de {filteredFollowers.length})
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="text-center py-16 text-gray-400 space-y-2">
