@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Minimize2, Square, X } from 'lucide-react';
+import { Search, Minimize2, Square, X, Menu } from 'lucide-react';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -10,6 +10,13 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
     <header className="h-10 bg-[#18181c] border-b border-[#2d2d34] flex items-center justify-between px-4 sticky top-0 z-10 select-none">
       {/* Left Menu / Breadcrumbs */}
       <div className="flex items-center gap-3 text-xs text-zinc-400">
+        <button 
+          onClick={onMenuClick} 
+          className="md:hidden p-1 text-zinc-400 hover:text-zinc-200 focus:outline-none"
+          title="Open Sidebar"
+        >
+          <Menu size={16} />
+        </button>
         <span className="font-semibold text-purple-400 text-sm hidden xs:inline tracking-wider">InstaManager Dev</span>
         <div className="hidden md:flex items-center gap-3 font-normal text-[11px] text-zinc-500">
           <span className="hover:text-zinc-300 cursor-pointer">File</span>
