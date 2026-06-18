@@ -66,6 +66,10 @@ const AccountAutomation: React.FC = () => {
   const [createCount, setCreateCount] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
   const [fullAccounts, setFullAccounts] = useState<{ username: string, password?: string }[]>([]);
+  const [fullAccountsError, setFullAccountsError] = useState<string | null>(null);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [consoleMode, setConsoleMode] = useState<'unified' | 'bot' | 'creator'>('unified');
+  const [copiedConsole, setCopiedConsole] = useState(false);
   const [creatorStatus, setCreatorStatus] = useState('idle');
   const [creatorLogs, setCreatorLogs] = useState<string[]>([]);
   const [creatorProgress, setCreatorProgress] = useState({ current: 0, total: 0, current_user: '' });
@@ -115,14 +119,22 @@ const AccountAutomation: React.FC = () => {
   // Fetch Saved Accounts & System Leads
   const loadAccounts = async () => {
     try {
+      setAccountsError(null);
       const data = await fetchSavedAccounts();
-      const accountsList = data.map((acc: any) => ({
-        username: acc.username,
-        status: 'pending' as const
-      }));
-      setSavedAccounts(accountsList);
-    } catch (err) {
+      if (Array.isArray(data)) {
+        const accountsList = data.map((acc: any) => ({
+          username: acc.username,
+          status: 'pending' as const
+        }));
+        setSavedAccounts(accountsList);
+      } else {
+        setSavedAccounts([]);
+        setAccountsError(data?.error || data?.message || 'Resposta inesperada do servidor principal.');
+      }
+    } catch (err: any) {
       console.error('Error fetching accounts:', err);
+      setSavedAccounts([]);
+      setAccountsError(err.message || 'Falha na conexão com o servidor do robô (porta 5000). Certifique-se de que o backend principal está rodando.');
     }
   };
 
@@ -153,10 +165,18 @@ const AccountAutomation: React.FC = () => {
 
   const loadFullAccounts = async () => {
     try {
+      setFullAccountsError(null);
       const data = await fetchFullAccounts();
-      setFullAccounts(data);
-    } catch (err) {
+      if (Array.isArray(data)) {
+        setFullAccounts(data);
+      } else {
+        setFullAccounts([]);
+        setFullAccountsError(data?.error || data?.message || 'Resposta inesperada do servidor de criação.');
+      }
+    } catch (err: any) {
       console.error('Error fetching full accounts:', err);
+      setFullAccounts([]);
+      setFullAccountsError(err.message || 'Falha na conexão com o servidor do criador (porta 5001). Verifique se o creator_server está rodando.');
     }
   };
 
@@ -543,10 +563,50 @@ const AccountAutomation: React.FC = () => {
     lead.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Combina e ordena os logs pelo timestamp [HH:MM:SS]
+  const getUnifiedLogs = () => {
+    const formattedBotLogs = campaignLogs.map(log => {
+      const str = typeof log === 'string' ? log : JSON.stringify(log);
+      return str.includes('[ROBÔ]') || str.includes('[SISTEMA]') ? str : `[ROBÔ] ${str}`;
+    });
+    const formattedCreatorLogs = creatorLogs.map(log => {
+      const str = typeof log === 'string' ? log : JSON.stringify(log);
+      return str.includes('[CRIADOR]') || str.includes('[SISTEMA]') ? str : `[CRIADOR] ${str}`;
+    });
+    const allLogs = [...formattedBotLogs, ...formattedCreatorLogs];
+    return allLogs.sort((a, b) => {
+      const timeA = a.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
+      const timeB = b.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
+      if (timeA && timeB) {
+        return timeA.localeCompare(timeB);
+      }
+      return 0;
+    });
+  };
+
+  const handleCopyConsole = () => {
+    const logs = 
+      consoleMode === 'unified' 
+        ? getUnifiedLogs() 
+        : consoleMode === 'creator' 
+        ? creatorLogs 
+        : campaignLogs;
+    if (logs.length === 0) return;
+    const textToCopy = logs.join('\n');
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedConsole(true);
+    setTimeout(() => setCopiedConsole(false), 2000);
+  };
+
   // Context-aware sidebar variables based on active tab (Port 5000 vs 5001)
   const currentStatus = activeTab === 'create_accounts' ? creatorStatus : botStatus;
   const currentProgress = activeTab === 'create_accounts' ? creatorProgress : botProgress;
-  const currentLogs = activeTab === 'create_accounts' ? creatorLogs : campaignLogs;
+  const currentLogs = 
+    consoleMode === 'unified' 
+      ? getUnifiedLogs() 
+      : consoleMode === 'creator' 
+      ? creatorLogs 
+      : campaignLogs;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -695,6 +755,12 @@ const AccountAutomation: React.FC = () => {
                 </div>
 
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                  {accountsError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2 mb-2 font-medium">
+                      <XCircle size={14} className="text-rose-600 shrink-0" />
+                      <span>{accountsError}</span>
+                    </div>
+                  )}
                   {savedAccounts.length === 0 ? (
                     <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400 text-sm">
                       Nenhuma conta conectada no momento. Use o formulário acima para conectar.
@@ -1333,6 +1399,12 @@ const AccountAutomation: React.FC = () => {
                 </div>
 
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                  {fullAccountsError && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2 mb-2 font-medium">
+                      <XCircle size={14} className="text-rose-600 shrink-0" />
+                      <span>{fullAccountsError}</span>
+                    </div>
+                  )}
                   {fullAccounts.length === 0 ? (
                     <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400 text-xs">
                       Nenhuma conta criada ou salva encontrada no banco de dados local.
@@ -1445,23 +1517,54 @@ const AccountAutomation: React.FC = () => {
 
           {/* Logs Terminal Console */}
           <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 flex flex-col h-[400px]">
-            <div className="bg-gray-800/80 px-4 py-3 border-b border-gray-800 rounded-t-2xl flex items-center justify-between text-white">
+            <div className="bg-gray-800/80 px-4 py-2 border-b border-gray-800 rounded-t-2xl flex items-center justify-between text-white">
               <div className="flex items-center gap-2 text-xs font-bold font-mono">
                 <Terminal size={14} className="text-pink-500" />
-                Console {activeTab === 'create_accounts' ? 'Criador' : 'Robô'} (Real-time)
+                <select
+                  value={consoleMode}
+                  onChange={(e) => setConsoleMode(e.target.value as any)}
+                  className="bg-gray-950 text-gray-200 border border-gray-700 rounded px-2 py-1 text-[11px] font-semibold focus:outline-none focus:ring-1 focus:ring-pink-500 cursor-pointer"
+                >
+                  <option value="unified">Console Geral Unificado</option>
+                  <option value="bot">Console do Robô (Porta 5000)</option>
+                  <option value="creator">Console do Criador (Porta 5001)</option>
+                </select>
               </div>
-              <button 
-                onClick={() => activeTab === 'create_accounts' ? setCreatorLogs([]) : setCampaignLogs([])}
-                className="text-[10px] font-semibold text-gray-400 hover:text-white transition-colors uppercase tracking-wider"
-              >
-                Limpar
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={handleCopyConsole}
+                  disabled={currentLogs.length === 0}
+                  className="text-[10px] font-semibold text-gray-400 hover:text-white transition-colors uppercase tracking-wider flex items-center gap-1.5 disabled:opacity-40"
+                  title="Copiar todos os logs exibidos para a área de transferência"
+                >
+                  {copiedConsole ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                  {copiedConsole ? 'Copiado!' : 'Copiar'}
+                </button>
+                <span className="text-gray-700 font-normal">|</span>
+                <button 
+                  onClick={() => {
+                    if (consoleMode === 'unified') {
+                      setCreatorLogs([]);
+                      setCampaignLogs([]);
+                    } else if (consoleMode === 'creator') {
+                      setCreatorLogs([]);
+                    } else {
+                      setCampaignLogs([]);
+                    }
+                  }}
+                  className="text-[10px] font-semibold text-gray-400 hover:text-white transition-colors uppercase tracking-wider"
+                >
+                  Limpar
+                </button>
+              </div>
             </div>
             
             <div className="flex-1 p-4 overflow-y-auto font-mono text-[11px] text-gray-300 space-y-2 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
               {currentLogs.length === 0 ? (
                 <div className="text-gray-600 text-center py-16 italic">
-                  {activeTab === 'create_accounts' 
+                  {consoleMode === 'unified'
+                    ? 'Nenhum log registrado no sistema até o momento.'
+                    : consoleMode === 'creator'
                     ? 'Aguardando início da criação automática de contas para registrar os eventos...'
                     : 'Aguardando início de alguma atividade ou postagem automática para registrar os eventos...'}
                 </div>
