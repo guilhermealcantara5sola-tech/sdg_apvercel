@@ -557,3 +557,30 @@ export async function syncInstagram(username?: string) {
   }
   return await res.json();
 }
+
+export async function verifySavedAccount(account: any) {
+  const res = await fetch(`${getApiBase()}/api/accounts/verify`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(account)
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || 'Falha ao autenticar conta');
+  }
+  return await res.json();
+}
+
+export async function postMedia(formData: FormData) {
+  const res = await fetch(`${getApiBase()}/api/accounts/post-media`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: formData
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Falha ao agendar postagem automática');
+  }
+  return await res.json();
+}
+

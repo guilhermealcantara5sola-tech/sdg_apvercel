@@ -40,3 +40,12 @@ token.txt
 *.spec
 build/
 dist/
+
+.vercel
+
+# Local/Sensitive files
+Muito importante/
+live_cache.json
+uploads/
+dados_instagram_filtrados/
+iniciar_campanha.bat

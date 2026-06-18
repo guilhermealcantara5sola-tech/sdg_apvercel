@@ -1474,6 +1474,139 @@ def bot_status_route():
         "logs": bot_logs
     })
 
+# Verificar e autenticar conta do Instagram usando instagrapi
+@app.route('/api/accounts/verify', methods=['POST'])
+def verify_account():
+    data = request.json or {}
+    username = data.get('username', '').strip().replace("@", "")
+    password = data.get('password', '')
+    if not username or not password:
+        return jsonify({"message": "Preencha usuário e senha"}), 400
+        
+    # Tenta autenticar usando instagrapi
+    from instagrapi import Client
+    cl = Client()
+    cl.delay_range = [2, 5]
+    proxy = os.environ.get("INSTAGRAM_PROXY")
+    if proxy:
+        cl.set_proxy(proxy)
+        
+    try:
+        session_file = f"session_{username}.json"
+        if os.path.exists(session_file):
+            try:
+                cl.load_settings(session_file)
+                cl.login(username, password)
+            except Exception:
+                cl.login(username, password)
+                cl.dump_settings(session_file)
+        else:
+            cl.login(username, password)
+            cl.dump_settings(session_file)
+            
+        # Adiciona ou atualiza no accounts.json
+        accounts_dict = load_saved_accounts()
+        accounts_dict[username] = password
+        save_accounts(accounts_dict)
+        return jsonify({"status": "success", "message": f"Conta @{username} autenticada e salva com sucesso!"})
+    except Exception as e:
+        return jsonify({"message": f"Erro de autenticação para @{username}: {str(e)}"}), 400
+
+# Rota para publicar foto em lote para ter conteúdo nas contas
+@app.route('/api/accounts/post-media', methods=['POST'])
+def post_media():
+    if 'image' not in request.files:
+        return jsonify({"error": "Nenhuma imagem enviada"}), 400
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({"error": "Nome de arquivo vazio"}), 400
+        
+    caption = request.form.get('caption', '')
+    accounts_raw = request.form.get('accounts', '[]')
+    try:
+        accounts = json.loads(accounts_raw)
+    except Exception:
+        return jsonify({"error": "Formato de contas inválido"}), 400
+        
+    if not accounts:
+        return jsonify({"error": "Selecione pelo menos uma conta para postar"}), 400
+        
+    # Salva temporariamente a imagem enviada
+    uploads_dir = os.path.join(BASE_DIR, 'uploads')
+    os.makedirs(uploads_dir, exist_ok=True)
+    temp_filename = f"post_{int(time.time())}{os.path.splitext(file.filename)[1].lower()}"
+    temp_path = os.path.join(uploads_dir, temp_filename)
+    file.save(temp_path)
+    
+    # Resolve as senhas das contas
+    resolved_accounts = []
+    saved_accounts = load_saved_accounts()
+    for acc_username in accounts:
+        acc_username = acc_username.replace("@", "").strip()
+        acc_password = saved_accounts.get(acc_username)
+        if acc_password:
+            resolved_accounts.append({"username": acc_username, "password": acc_password})
+            
+    if not resolved_accounts:
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+        return jsonify({"error": "Nenhuma das contas selecionadas possui senha salva localmente"}), 400
+        
+    # Roda em thread separada
+    def run_post_task():
+        global bot_logs, bot_status
+        bot_logs.clear()
+        bot_status = "running"
+        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Iniciando postagem automática em {len(resolved_accounts)} contas...")
+        
+        for idx, acc in enumerate(resolved_accounts):
+            username = acc['username']
+            password = acc['password']
+            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{username}] Conectando para publicar...")
+            
+            from instagrapi import Client
+            cl = Client()
+            cl.delay_range = [2, 5]
+            proxy = os.environ.get("INSTAGRAM_PROXY")
+            if proxy:
+                cl.set_proxy(proxy)
+                
+            try:
+                session_file = f"session_{username}.json"
+                if os.path.exists(session_file):
+                    try:
+                        cl.load_settings(session_file)
+                        cl.login(username, password)
+                    except Exception:
+                        cl.login(username, password)
+                        cl.dump_settings(session_file)
+                else:
+                    cl.login(username, password)
+                    cl.dump_settings(session_file)
+                    
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] [@{username}] Login OK. Publicando imagem...")
+                media = cl.photo_upload(temp_path, caption)
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] SUCESSO: Post publicado na conta @{username} (ID: {media.pk})")
+            except Exception as ex:
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] ERRO ao publicar na conta @{username}: {str(ex)}")
+                
+            if idx < len(resolved_accounts) - 1:
+                delay = random.randint(10, 30)
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Aguardando {delay} segundos antes da próxima conta...")
+                time.sleep(delay)
+                
+        bot_status = "completed"
+        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Processo de postagem automática em lote concluído!")
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+            
+    threading.Thread(target=run_post_task).start()
+    return jsonify({"status": "started", "message": "Automação de postagem iniciada em segundo plano!"})
+
 # Rota pública de Health Check
 @app.route('/api/health')
 def health():
