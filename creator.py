@@ -62,6 +62,63 @@ class FivesimAPI:
         url = f"{self.url}/cancel/{activation_id}"
         requests.get(url, headers=self.headers, timeout=10)
 
+class SmsActivateAPI:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.url = "https://sms-activate.org/stubs/handler_api.php"
+
+    def get_balance(self):
+        try:
+            url = f"{self.url}?api_key={self.api_key}&action=getBalance"
+            res = requests.get(url, timeout=10)
+            if res.status_code == 200 and "ACCESS_BALANCE:" in res.text:
+                return float(res.text.split(":")[1])
+            return 0.0
+        except Exception as e:
+            log(f"Erro ao verificar saldo SMS-Activate: {e}", "ERRO")
+            return 0.0
+
+    def get_number(self, country="brazil"):
+        # Mapeia brasil para 73, senao default 0 (Russia/global)
+        country_id = "73" if country.lower() == "brazil" else "0"
+        url = f"{self.url}?api_key={self.api_key}&action=getNumber&service=ig&country={country_id}"
+        res = requests.get(url, timeout=15)
+        if res.status_code == 200 and "ACCESS_NUMBER:" in res.text:
+            parts = res.text.split(":")
+            activation_id = parts[1]
+            number = parts[2]
+            return activation_id, number
+        raise Exception(f"Erro SMS-Activate ao obter número (Status {res.status_code}): {res.text}")
+
+    def get_sms_code(self, activation_id):
+        url = f"{self.url}?api_key={self.api_key}&action=getStatus&id={activation_id}"
+        res = requests.get(url, timeout=10)
+        if res.status_code == 200 and "STATUS_OK:" in res.text:
+            return res.text.split(":")[1]
+        return None
+
+    def finish_order(self, activation_id):
+        url = f"{self.url}?api_key={self.api_key}&action=setStatus&status=6&id={activation_id}"
+        requests.get(url, timeout=10)
+
+    def cancel_order(self, activation_id):
+        url = f"{self.url}?api_key={self.api_key}&action=setStatus&status=8&id={activation_id}"
+        requests.get(url, timeout=10)
+
+def get_sms_api(api_key):
+    clean_key = api_key.strip()
+    # Chaves do SMS-Activate são tipicamente hexadecimais de 32 caracteres (sem pontos)
+    is_sms_activate = False
+    if len(clean_key) == 32 and all(c in "0123456789abcdefABCDEF" for c in clean_key):
+        is_sms_activate = True
+    
+    if is_sms_activate:
+        log("Provedor detectado: SMS-Activate.org", "SMS")
+        return SmsActivateAPI(clean_key)
+    else:
+        log("Provedor detectado: 5sim.net", "SMS")
+        return FivesimAPI(clean_key)
+
 def generate_random_name():
     first_names = [
         "Aline", "Amanda", "Beatriz", "Bruna", "Camila", "Carolina", "Daniela", "Eduarda",
@@ -95,7 +152,8 @@ def create_instagram_account(args, sms_api, account_idx):
 
     if sms_api:
         try:
-            log(f"Solicitando número de telefone (País: {args.country}) no 5sim.net...", "SMS")
+            provider_name = "SMS-Activate.org" if isinstance(sms_api, SmsActivateAPI) else "5sim.net"
+            log(f"Solicitando número de telefone (País: {args.country}) no {provider_name}...", "SMS")
             activation_id, phone_number = sms_api.get_number(args.country)
             # Garante formato correto (+ no início)
             if not phone_number.startswith("+"):
@@ -210,7 +268,8 @@ def create_instagram_account(args, sms_api, account_idx):
 
             # Código de confirmação por SMS
             if sms_api and activation_id:
-                log("Aguardando código de SMS do Instagram no 5sim.net...", "SMS")
+                provider_name = "SMS-Activate.org" if isinstance(sms_api, SmsActivateAPI) else "5sim.net"
+                log(f"Aguardando código de SMS do Instagram no {provider_name}...", "SMS")
                 sms_code = None
                 # Polling de até 3 minutos
                 for attempt in range(36):
@@ -314,11 +373,12 @@ def main():
 
     sms_api = None
     if args.sms_key:
-        sms_api = FivesimAPI(args.sms_key)
+        sms_api = get_sms_api(args.sms_key)
         balance = sms_api.get_balance()
-        log(f"Conectado ao 5sim.net. Saldo disponível: R$ {balance:.2f}", "SMS")
+        provider_name = "SMS-Activate.org" if isinstance(sms_api, SmsActivateAPI) else "5sim.net"
+        log(f"Conectado ao {provider_name}. Saldo disponível: R$ {balance:.2f}", "SMS")
         if balance <= 0.0:
-            log("AVISO: Seu saldo no 5sim.net está zerado. A compra de números pode falhar.", "AVISO")
+            log(f"AVISO: Seu saldo no {provider_name} está zerado. A compra de números pode falhar.", "AVISO")
     else:
         log("Nenhuma chave de SMS informada. Tentando criar sem verificação de chip (não recomendado).", "AVISO")
 
