@@ -25,7 +25,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [openEditorsOpen, setOpenEditorsOpen] = useState(true);
 
   const navItems = [
-    { icon: FileCode, label: 'dashboard.tsx', path: '/' },
     { icon: FileCode, label: 'campaigns_config.json', path: '/broadcast' },
     { icon: FileCode, label: 'strategy_planner.py', path: '/analytics' },
     { icon: FileCode, label: 'account_automation.py', path: '/automation' },
