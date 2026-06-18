@@ -633,51 +633,51 @@ const AccountAutomation: React.FC = () => {
         </div>
       </div>
 
-      {/* Navigation sub-tabs */}
-      <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm gap-2 max-w-2xl">
+      {/* VS Code Editor File Tabs */}
+      <div className="flex bg-[#121214] border border-[#2d2d34] overflow-x-auto select-none rounded-t-xl w-fit">
         <button
           onClick={() => setActiveTab('accounts')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+          className={`px-4 py-2 text-xs flex items-center gap-2 border-r border-[#2d2d34] border-t-2 transition-all ${
             activeTab === 'accounts' 
-              ? 'bg-purple-600 text-white shadow-md' 
-              : 'text-gray-600 hover:bg-gray-50'
+              ? 'bg-[#1e1e24] text-purple-400 border-t-purple-500 font-semibold' 
+              : 'bg-[#121214] text-zinc-500 border-t-transparent hover:text-zinc-300 hover:bg-[#1c1c1f]'
           }`}
         >
-          <UserPlus size={16} />
-          Conectar Contas
+          <UserPlus size={13} className={activeTab === 'accounts' ? 'text-purple-400' : 'text-zinc-600'} />
+          <span className="font-mono text-[11px]">connect_profiles.json</span>
         </button>
         <button
           onClick={() => setActiveTab('boosting')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+          className={`px-4 py-2 text-xs flex items-center gap-2 border-r border-[#2d2d34] border-t-2 transition-all ${
             activeTab === 'boosting' 
-              ? 'bg-purple-600 text-white shadow-md' 
-              : 'text-gray-600 hover:bg-gray-50'
+              ? 'bg-[#1e1e24] text-purple-400 border-t-purple-500 font-semibold' 
+              : 'bg-[#121214] text-zinc-500 border-t-transparent hover:text-zinc-300 hover:bg-[#1c1c1f]'
           }`}
         >
-          <Cpu size={16} />
-          Impulsionar
+          <Cpu size={13} className={activeTab === 'boosting' ? 'text-purple-400' : 'text-zinc-600'} />
+          <span className="font-mono text-[11px]">campaign_config.json</span>
         </button>
         <button
           onClick={() => setActiveTab('posts')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+          className={`px-4 py-2 text-xs flex items-center gap-2 border-r border-[#2d2d34] border-t-2 transition-all ${
             activeTab === 'posts' 
-              ? 'bg-purple-600 text-white shadow-md' 
-              : 'text-gray-600 hover:bg-gray-50'
+              ? 'bg-[#1e1e24] text-purple-400 border-t-purple-500 font-semibold' 
+              : 'bg-[#121214] text-zinc-500 border-t-transparent hover:text-zinc-300 hover:bg-[#1c1c1f]'
           }`}
         >
-          <ImageIcon size={16} />
-          Postar Mídia
+          <ImageIcon size={13} className={activeTab === 'posts' ? 'text-purple-400' : 'text-zinc-600'} />
+          <span className="font-mono text-[11px]">media_uploader.json</span>
         </button>
         <button
           onClick={() => setActiveTab('create_accounts')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+          className={`px-4 py-2 text-xs flex items-center gap-2 border-r border-[#2d2d34] border-t-2 transition-all ${
             activeTab === 'create_accounts' 
-              ? 'bg-purple-600 text-white shadow-md' 
-              : 'text-gray-600 hover:bg-gray-50'
+              ? 'bg-[#1e1e24] text-purple-400 border-t-purple-500 font-semibold' 
+              : 'bg-[#121214] text-zinc-500 border-t-transparent hover:text-zinc-300 hover:bg-[#1c1c1f]'
           }`}
         >
-          <Sparkles size={16} />
-          Criar Contas
+          <Sparkles size={13} className={activeTab === 'create_accounts' ? 'text-purple-400' : 'text-zinc-600'} />
+          <span className="font-mono text-[11px]">account_creator.py</span>
         </button>
       </div>
 
@@ -1521,8 +1521,10 @@ const AccountAutomation: React.FC = () => {
               </div>
             )}
           </div>
+        </div>
+      </div>
 
-          {/* Logs Terminal Console */}
+      {/* Logs Terminal Console */}
           <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 flex flex-col h-[400px]">
             <div className="bg-gray-800/80 px-4 py-2 border-b border-gray-800 rounded-t-2xl flex items-center justify-between text-white">
               <div className="flex items-center gap-2 text-xs font-bold font-mono">
@@ -1597,12 +1599,8 @@ const AccountAutomation: React.FC = () => {
               <div ref={logEndRef} />
             </div>
           </div>
-
         </div>
-
-      </div>
-    </div>
-  );
-};
+      );
+    };
 
 export default AccountAutomation;
