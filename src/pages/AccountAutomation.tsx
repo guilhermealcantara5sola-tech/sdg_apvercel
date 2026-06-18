@@ -9,8 +9,7 @@ import {
   fetchBotStatus, 
   fetchFollowers,
   createAccounts,
-  fetchSettings,
-  saveSettings
+  fetchSettings
 } from '../utils/api';
 import { 
   UserPlus, 
