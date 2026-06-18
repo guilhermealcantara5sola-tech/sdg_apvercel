@@ -11,7 +11,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const navItems = [
     { icon: Home, label: 'Início', path: '/' },
     { icon: Send, label: 'Campanhas', path: '/broadcast' },
-    { icon: Users, label: 'Gestão de Leads', path: '/leads' },
     { icon: Grid, label: 'Postagens', path: '/posts' },
     { icon: BarChart2, label: 'Desempenho', path: '/analytics' },
     { icon: Cpu, label: 'Automação de Contas', path: '/automation' },
