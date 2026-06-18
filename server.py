@@ -101,6 +101,7 @@ bot_logs = []
 bot_status = "idle"  # idle, running, completed, error, stopping
 bot_progress = {"current": 0, "total": 0, "current_user": ""}
 bot_thread = None
+creator_process = None
 
 ACCOUNTS_FILE = os.path.join(BASE_DIR, 'accounts.json')
 LIVE_CACHE_FILE = os.path.join(BASE_DIR, 'live_cache.json')
@@ -1453,14 +1454,20 @@ def bot_start():
 # Parar disparo
 @app.route('/api/bot/stop', methods=['POST'])
 def bot_stop():
-    global bot_instance, bot_status, bot_instances
-    if bot_status == "running":
+    global bot_instance, bot_status, bot_instances, creator_process
+    if bot_status == "running" or bot_status == "stopping":
         bot_status = "stopping"
         bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Solicitando interrupção de todas as threads...")
         if bot_instance:
             bot_instance.stop()
         for bot in bot_instances:
             bot.stop()
+        if creator_process:
+            try:
+                creator_process.terminate()
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Processo de criação de contas encerrado.")
+            except Exception as e:
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Erro ao encerrar criador: {e}")
         return jsonify({"status": "stopping"})
     return jsonify({"error": "O robô não está em execução"}), 400
 
@@ -1606,6 +1613,114 @@ def post_media():
             
     threading.Thread(target=run_post_task).start()
     return jsonify({"status": "started", "message": "Automação de postagem iniciada em segundo plano!"})
+
+# Rota para criar contas de forma automatizada usando creator.py
+@app.route('/api/accounts/create', methods=['POST'])
+def accounts_create_route():
+    global bot_status, bot_logs, creator_process, bot_progress
+    if bot_status == "running":
+        return jsonify({"error": "O robô de disparos ou criação já está em execução"}), 400
+
+    data = request.json or {}
+    sms_key = data.get('sms_key', '').strip()
+    country_code = data.get('country_code', 73)
+    username_prefix = data.get('username_prefix', 'sdg').strip()
+    password = data.get('password', '').strip()
+    proxy = data.get('proxy', '').strip()
+    count = int(data.get('count', 1))
+
+    bot_logs.clear()
+    bot_status = "running"
+    bot_progress = {"current": 0, "total": count, "current_user": ""}
+
+    def run_creator_process():
+        global bot_status, creator_process, bot_progress
+        import subprocess
+        import shlex
+        
+        # Constrói comando para executar o script creator.py
+        # Usamos sys.executable para chamar o mesmo interpretador Python (ou server.exe se compilado)
+        cmd = [sys.executable, os.path.join(BASE_DIR, "creator.py")]
+        
+        if sms_key:
+            cmd.extend(["--sms-key", sms_key])
+        if country_code:
+            cmd.extend(["--country-code", str(country_code)])
+        if username_prefix:
+            cmd.extend(["--username-prefix", username_prefix])
+        if password:
+            cmd.extend(["--password", password])
+        if proxy:
+            cmd.extend(["--proxy", proxy])
+        if count:
+            cmd.extend(["--count", str(count)])
+
+        bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Iniciando processo de criação automática...")
+        
+        try:
+            # Roda o subprocesso capturando stdout/stderr em tempo real
+            # No Windows, precisamos passar creationflags=subprocess.CREATE_NO_WINDOW se quisermos esconder o console secundário
+            creator_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                cwd=BASE_DIR,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+
+            # Lê a saída linha por linha
+            for line in iter(creator_process.stdout.readline, ''):
+                clean_line = line.strip()
+                if clean_line:
+                    bot_logs.append(clean_line)
+                    
+                    # Atualiza o progresso analisando mensagens específicas
+                    if "Iniciando criação da conta" in clean_line:
+                        try:
+                            # Ex: "Iniciando criação da conta 1: @sdg_abc..."
+                            parts = clean_line.split("da conta ")[1].split(":")
+                            current_idx = int(parts[0])
+                            current_user = parts[1].split("/")[0].strip().replace("@", "")
+                            bot_progress["current"] = current_idx
+                            bot_progress["current_user"] = current_user
+                        except Exception:
+                            pass
+                    elif "SUCESSO: Conta" in clean_line:
+                        try:
+                            parts = clean_line.split("Conta ")[1].split(" criada")[0].strip().replace("@", "")
+                            bot_progress["current_user"] = parts
+                        except Exception:
+                            pass
+
+            creator_process.stdout.close()
+            return_code = creator_process.wait()
+            
+            if return_code == 0:
+                bot_status = "completed"
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Criação de contas concluída com sucesso!")
+            else:
+                if bot_status == "stopping":
+                    bot_status = "idle"
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Criação de contas interrompida pelo usuário.")
+                else:
+                    bot_status = "error"
+                    bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Criação de contas finalizou com erro (Código: {return_code}).")
+
+        except Exception as e:
+            bot_status = "error"
+            bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Erro fatal ao rodar processo criador: {str(e)}")
+            # Se der erro por falta de interpretador python (como no executável compilado sem python externo)
+            if "FileNotFoundError" in str(type(e)) or "sistema não pode encontrar" in str(e):
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] DICA: O Python não está instalado nesta máquina ou não está no PATH.")
+                bot_logs.append(f"[{time.strftime('%H:%M:%S')}] Por favor, execute o arquivo 'instalar_python.bat' na raiz do sistema para instalar automaticamente!")
+
+        finally:
+            creator_process = None
+
+    threading.Thread(target=run_creator_process).start()
+    return jsonify({"status": "started", "message": "Processo de criação automática de contas iniciado!"})
 
 # Rota pública de Health Check
 @app.route('/api/health')

@@ -7,7 +7,8 @@ import {
   startBot, 
   stopBot, 
   fetchBotStatus, 
-  fetchFollowers 
+  fetchFollowers,
+  createAccounts
 } from '../utils/api';
 import { 
   UserPlus, 
@@ -36,7 +37,16 @@ interface Account {
 
 const AccountAutomation: React.FC = () => {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'accounts' | 'boosting' | 'posts'>('accounts');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'boosting' | 'posts' | 'create_accounts'>('accounts');
+
+  // 4. Tab Criar Contas
+  const [smsKey, setSmsKey] = useState(() => localStorage.getItem('sms_activate_key') || '');
+  const [countryCode, setCountryCode] = useState(73); // 73 is Brazil
+  const [usernamePrefix, setUsernamePrefix] = useState('sdg');
+  const [createPassword, setCreatePassword] = useState('');
+  const [createProxy, setCreateProxy] = useState('');
+  const [createCount, setCreateCount] = useState(1);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Connection settings
   const [apiUrl] = useState(() => localStorage.getItem('api_base_url') || 'http://localhost:5000');
@@ -342,6 +352,32 @@ const AccountAutomation: React.FC = () => {
     }
   };
 
+  const handleCreateAccounts = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (smsKey) {
+      localStorage.setItem('sms_activate_key', smsKey);
+    }
+    setIsCreating(true);
+    setCampaignLogs(['[SISTEMA] Iniciando criador de contas automático...']);
+    setBotStatus('running');
+
+    try {
+      await createAccounts({
+        sms_key: smsKey,
+        country_code: countryCode,
+        username_prefix: usernamePrefix,
+        password: createPassword,
+        proxy: createProxy,
+        count: createCount
+      });
+    } catch (err: any) {
+      alert(err.message || 'Erro ao iniciar criação de contas.');
+      setBotStatus('idle');
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   // Filtering leads search
   const filteredSystemLeads = systemLeads.filter(lead => 
     lead.username.toLowerCase().includes(searchTerm.toLowerCase())
@@ -366,7 +402,7 @@ const AccountAutomation: React.FC = () => {
       </div>
 
       {/* Navigation sub-tabs */}
-      <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm gap-2 max-w-lg">
+      <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm gap-2 max-w-2xl">
         <button
           onClick={() => setActiveTab('accounts')}
           className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
@@ -399,6 +435,17 @@ const AccountAutomation: React.FC = () => {
         >
           <ImageIcon size={16} />
           Postar Mídia
+        </button>
+        <button
+          onClick={() => setActiveTab('create_accounts')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 ${
+            activeTab === 'create_accounts' 
+              ? 'bg-purple-600 text-white shadow-md' 
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          <Sparkles size={16} />
+          Criar Contas
         </button>
       </div>
 
@@ -893,6 +940,157 @@ const AccountAutomation: React.FC = () => {
                   )}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* TAB 4: AUTOMATED ACCOUNT CREATION */}
+          {activeTab === 'create_accounts' && (
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Criar Contas do Zero</h2>
+                <p className="text-gray-500 text-xs mt-1">
+                  Crie novas contas do Instagram automaticamente usando a API do SMS-Activate para obter os números e Playwright para o cadastro.
+                </p>
+              </div>
+
+              {/* DICA DE INSTALAÇÃO DO PYTHON */}
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="text-purple-600 animate-pulse" size={18} />
+                  <span className="text-xs font-bold text-purple-900">Requisito do Sistema</span>
+                </div>
+                <p className="text-[11px] text-purple-700 leading-relaxed">
+                  Para utilizar este recurso, sua máquina precisa ter o **Python** e o **Google Chrome** instalados. 
+                  Facilitamos isso para você! Basta abrir a pasta raiz do seu robô no computador e dar um duplo clique no arquivo:
+                </p>
+                <div className="flex items-center gap-1.5 bg-white border border-purple-200 px-3 py-1.5 rounded-lg text-xs font-mono text-purple-900 w-fit">
+                  instalar_python.bat
+                </div>
+                <p className="text-[10px] text-purple-500">
+                  Esse arquivo instalará silenciosamente o Python e todas as bibliotecas necessárias automaticamente.
+                </p>
+              </div>
+
+              <form onSubmit={handleCreateAccounts} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  
+                  {/* SMS API KEY */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 block">Chave API do SMS-Activate</label>
+                    <input
+                      type="text"
+                      value={smsKey}
+                      onChange={(e) => setSmsKey(e.target.value)}
+                      placeholder="Insira sua API Key do sms-activate.org"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                      required
+                    />
+                    <p className="text-[9px] text-gray-400">
+                      Necessário para comprar os chips virtuais e receber o SMS de cadastro.
+                    </p>
+                  </div>
+
+                  {/* COUNTRY CODE */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 block">País do Chip</label>
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                    >
+                      <option value={73}>Brasil (ID: 73) - Recomendado</option>
+                      <option value={0}>Rússia (ID: 0) - Mais barato</option>
+                      <option value={1}>Ucrânia (ID: 1)</option>
+                      <option value={22}>Colômbia (ID: 22)</option>
+                      <option value={187}>Estados Unidos (ID: 187)</option>
+                    </select>
+                  </div>
+
+                  {/* USERNAME PREFIX */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 block">Prefixo dos Usuários</label>
+                    <input
+                      type="text"
+                      value={usernamePrefix}
+                      onChange={(e) => setUsernamePrefix(e.target.value)}
+                      placeholder="Ex: sdg, loja, insta"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                      required
+                    />
+                    <p className="text-[9px] text-gray-400">
+                      As contas serão criadas como: prefixo_letrasaleatorias
+                    </p>
+                  </div>
+
+                  {/* PASSWORD */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 block">Senha Padrão (Opcional)</label>
+                    <input
+                      type="text"
+                      value={createPassword}
+                      onChange={(e) => setCreatePassword(e.target.value)}
+                      placeholder="Deixe em branco para senha aleatória"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                    />
+                  </div>
+
+                  {/* PROXY */}
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-xs font-semibold text-gray-600 block">Proxy Residencial (Opcional)</label>
+                    <input
+                      type="text"
+                      value={createProxy}
+                      onChange={(e) => setCreateProxy(e.target.value)}
+                      placeholder="IP:PORTA ou IP:PORTA:USUARIO:SENHA"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                    />
+                    <p className="text-[9px] text-gray-400">
+                      Recomendado para evitar bloqueios ao criar mais de 2 contas seguidas.
+                    </p>
+                  </div>
+
+                  {/* QUANTIDADE DE CONTAS */}
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-600 block">Quantidade de Contas</label>
+                    <input
+                      type="number"
+                      value={createCount}
+                      onChange={(e) => setCreateCount(Number(e.target.value))}
+                      min={1}
+                      max={20}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                      required
+                    />
+                  </div>
+
+                </div>
+
+                {/* BOTÕES DE AÇÃO */}
+                <div className="flex justify-between items-center pt-4 border-t border-gray-100 gap-4">
+                  <div className="text-[11px] text-amber-600 font-semibold leading-normal max-w-xs">
+                    * Nota: A janela do navegador se abrirá. Caso apareça o CAPTCHA de animais, resolva-o manualmente na tela para ajudar o robô!
+                  </div>
+                  {botStatus === 'running' ? (
+                    <button
+                      type="button"
+                      onClick={handleStopCampaign}
+                      className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm shrink-0"
+                    >
+                      <Square size={16} />
+                      Parar Automação
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={isCreating}
+                      className="px-5 py-2 bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 text-white rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-md disabled:opacity-50 shrink-0"
+                    >
+                      <Sparkles size={16} />
+                      {isCreating ? 'Iniciando...' : 'Iniciar Criação de Contas'}
+                    </button>
+                  )}
+                </div>
+              </form>
             </div>
           )}
         </div>

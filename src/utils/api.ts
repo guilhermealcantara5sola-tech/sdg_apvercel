@@ -584,3 +584,16 @@ export async function postMedia(formData: FormData) {
   return await res.json();
 }
 
+export async function createAccounts(data: any) {
+  const res = await fetch(`${getApiBase()}/api/accounts/create`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Falha ao iniciar criador automático de contas');
+  }
+  return await res.json();
+}
+
