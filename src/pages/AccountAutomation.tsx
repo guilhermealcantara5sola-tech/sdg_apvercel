@@ -10,7 +10,9 @@ import {
   fetchFollowers,
   createAccounts,
   fetchSettings,
-  fetchFullAccounts
+  fetchFullAccounts,
+  fetchCreatorStatus,
+  stopCreator
 } from '../utils/api';
 import { 
   UserPlus, 
@@ -64,6 +66,9 @@ const AccountAutomation: React.FC = () => {
   const [createCount, setCreateCount] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
   const [fullAccounts, setFullAccounts] = useState<{ username: string, password?: string }[]>([]);
+  const [creatorStatus, setCreatorStatus] = useState('idle');
+  const [creatorLogs, setCreatorLogs] = useState<string[]>([]);
+  const [creatorProgress, setCreatorProgress] = useState({ current: 0, total: 0, current_user: '' });
 
   // Connection settings
   const [apiUrl] = useState(() => localStorage.getItem('api_base_url') || 'http://localhost:5000');
@@ -160,9 +165,27 @@ const AccountAutomation: React.FC = () => {
     loadSystemLeads();
     loadSettingsFromServer();
     loadFullAccounts();
+
+    // Sincroniza estados iniciais dos dois servidores (disparo na porta 5000 e criador na 5001)
+    const checkInitialStatuses = async () => {
+      try {
+        const botState = await fetchBotStatus();
+        setBotStatus(botState.status);
+        setBotProgress(botState.progress);
+        if (botState.logs) setCampaignLogs(botState.logs);
+      } catch (e) {}
+      
+      try {
+        const creatorState = await fetchCreatorStatus();
+        setCreatorStatus(creatorState.status);
+        setCreatorProgress(creatorState.progress);
+        if (creatorState.logs) setCreatorLogs(creatorState.logs);
+      } catch (e) {}
+    };
+    checkInitialStatuses();
   }, []);
 
-  // Poll Bot Status when campaign is running
+  // Poll Bot Status when campaign is running (Port 5000)
   useEffect(() => {
     let timer: any;
     const checkStatus = async () => {
@@ -198,12 +221,48 @@ const AccountAutomation: React.FC = () => {
     };
   }, [botStatus]);
 
+  // Poll Creator Status when creation is running (Port 5001)
+  useEffect(() => {
+    let timer: any;
+    const checkCreatorStatus = async () => {
+      try {
+        const state = await fetchCreatorStatus();
+        const prevStatus = creatorStatus;
+        setCreatorStatus(state.status);
+        setCreatorProgress(state.progress);
+        if (state.logs) {
+          setCreatorLogs(state.logs);
+        }
+
+        // Se terminou ou parou, atualiza a lista de contas na mesma hora
+        if (state.status !== 'running' && state.status !== 'stopping' && prevStatus === 'running') {
+          loadAccounts();
+          loadFullAccounts();
+        }
+        
+        if (state.status === 'running' || state.status === 'stopping') {
+          timer = setTimeout(checkCreatorStatus, 3000);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    if (creatorStatus === 'running' || creatorStatus === 'stopping') {
+      checkCreatorStatus();
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [creatorStatus]);
+
   // Scroll to logs end
   useEffect(() => {
     if (logEndRef.current) {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [campaignLogs]);
+  }, [campaignLogs, creatorLogs]);
 
   // Account creation/testing function
   const handleVerifyAndAddAccount = async (e: React.FormEvent) => {
@@ -361,6 +420,16 @@ const AccountAutomation: React.FC = () => {
     }
   };
 
+  // Stop Creator Subprocess
+  const handleStopCreator = async () => {
+    try {
+      await stopCreator();
+      setCreatorStatus('stopping');
+    } catch (err) {
+      alert('Erro ao parar criador.');
+    }
+  };
+
   // Post image handler
   const handlePostImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -407,8 +476,8 @@ const AccountAutomation: React.FC = () => {
       localStorage.setItem('sms_activate_key', smsKey);
     }
     setIsCreating(true);
-    setCampaignLogs(['[SISTEMA] Iniciando criador de contas automático...']);
-    setBotStatus('running');
+    setCreatorLogs(['[SISTEMA] Iniciando criador de contas automático...']);
+    setCreatorStatus('running');
 
     try {
       await createAccounts({
@@ -421,7 +490,7 @@ const AccountAutomation: React.FC = () => {
       });
     } catch (err: any) {
       alert(err.message || 'Erro ao iniciar criação de contas.');
-      setBotStatus('idle');
+      setCreatorStatus('idle');
     } finally {
       setIsCreating(false);
     }
@@ -473,6 +542,11 @@ const AccountAutomation: React.FC = () => {
   const filteredSystemLeads = systemLeads.filter(lead => 
     lead.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Context-aware sidebar variables based on active tab (Port 5000 vs 5001)
+  const currentStatus = activeTab === 'create_accounts' ? creatorStatus : botStatus;
+  const currentProgress = activeTab === 'create_accounts' ? creatorProgress : botProgress;
+  const currentLogs = activeTab === 'create_accounts' ? creatorLogs : campaignLogs;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -1044,22 +1118,47 @@ const AccountAutomation: React.FC = () => {
                 </p>
               </div>
 
-              {/* DICA DE INSTALAÇÃO DO PYTHON */}
-              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="text-purple-600 animate-pulse" size={18} />
-                  <span className="text-xs font-bold text-purple-900">Requisito do Sistema</span>
+              {/* DICA DE INSTALAÇÃO DO PYTHON & SERVIDOR DEDICADO */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="text-purple-600 animate-pulse" size={18} />
+                    <span className="text-xs font-bold text-purple-900">Requisito do Sistema</span>
+                  </div>
+                  <p className="text-[11px] text-purple-700 leading-relaxed">
+                    Para utilizar este recurso, sua máquina precisa ter o **Python** e o **Google Chrome** instalados. 
+                    Facilitamos isso para você! Basta abrir a pasta raiz do seu robô no computador e dar um duplo clique no arquivo:
+                  </p>
+                  <div className="flex items-center gap-1.5 bg-white border border-purple-200 px-3 py-1.5 rounded-lg text-xs font-mono text-purple-900 w-fit">
+                    instalar_python.bat
+                  </div>
+                  <p className="text-[10px] text-purple-500">
+                    Esse arquivo instalará silenciosamente o Python e todas as bibliotecas necessárias automaticamente.
+                  </p>
                 </div>
-                <p className="text-[11px] text-purple-700 leading-relaxed">
-                  Para utilizar este recurso, sua máquina precisa ter o **Python** e o **Google Chrome** instalados. 
-                  Facilitamos isso para você! Basta abrir a pasta raiz do seu robô no computador e dar um duplo clique no arquivo:
-                </p>
-                <div className="flex items-center gap-1.5 bg-white border border-purple-200 px-3 py-1.5 rounded-lg text-xs font-mono text-purple-900 w-fit">
-                  instalar_python.bat
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Cpu className="text-blue-600 animate-pulse" size={18} />
+                      <span className="text-xs font-bold text-blue-900">Servidor de Criação Dedicado</span>
+                    </div>
+                    <p className="text-[11px] text-blue-700 leading-relaxed mt-2">
+                      Para gerar contas de forma independente sem interromper ou afetar suas campanhas ativas, use o servidor dedicado.
+                    </p>
+                    <p className="text-[10px] text-blue-500 mt-1">
+                      Execute o executável abaixo localmente para abrir o microservidor na porta **5001** específico para criação de contas.
+                    </p>
+                  </div>
+                  <a
+                    href="/creator_server.exe"
+                    download="creator_server.exe"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all duration-200 shadow-sm w-full mt-2"
+                  >
+                    <Download size={14} />
+                    Baixar Servidor do Criador (creator_server.exe)
+                  </a>
                 </div>
-                <p className="text-[10px] text-purple-500">
-                  Esse arquivo instalará silenciosamente o Python e todas as bibliotecas necessárias automaticamente.
-                </p>
               </div>
 
               <form onSubmit={handleCreateAccounts} className="space-y-4">
@@ -1161,14 +1260,15 @@ const AccountAutomation: React.FC = () => {
                   <div className="text-[11px] text-amber-600 font-semibold leading-normal max-w-xs">
                     * Nota: A janela do navegador se abrirá. Caso apareça o CAPTCHA de animais, resolva-o manualmente na tela para ajudar o robô!
                   </div>
-                  {botStatus === 'running' ? (
+                  {creatorStatus === 'running' || creatorStatus === 'stopping' ? (
                     <button
                       type="button"
-                      onClick={handleStopCampaign}
-                      className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm shrink-0"
+                      onClick={handleStopCreator}
+                      disabled={creatorStatus === 'stopping'}
+                      className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm shrink-0 disabled:opacity-50"
                     >
                       <Square size={16} />
-                      Parar Automação
+                      {creatorStatus === 'stopping' ? 'Parando...' : 'Parar Automação'}
                     </button>
                   ) : (
                     <button
@@ -1285,54 +1385,58 @@ const AccountAutomation: React.FC = () => {
           
           {/* Status box */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-            <h3 className="text-base font-bold text-gray-800">Status do Robô</h3>
+            <h3 className="text-base font-bold text-gray-800">
+              {activeTab === 'create_accounts' ? 'Status do Criador' : 'Status do Robô'}
+            </h3>
             
             <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-200">
               <div className="flex items-center gap-2.5">
                 <span className={`w-3 h-3 rounded-full ${
-                  botStatus === 'running' 
+                  currentStatus === 'running' 
                     ? 'bg-emerald-500 animate-pulse' 
-                    : botStatus === 'stopping'
+                    : currentStatus === 'stopping'
                     ? 'bg-amber-500 animate-pulse'
-                    : botStatus === 'completed'
+                    : currentStatus === 'completed'
                     ? 'bg-blue-500'
                     : 'bg-gray-400'
                 }`} />
                 <div>
                   <span className="text-xs font-bold text-gray-700 block">
-                    {botStatus === 'running' && 'Em Execução'}
-                    {botStatus === 'stopping' && 'Interrompendo...'}
-                    {botStatus === 'completed' && 'Finalizado'}
-                    {botStatus === 'idle' && 'Ocioso'}
-                    {botStatus === 'offline' && 'Servidor Offline'}
-                    {botStatus === 'error' && 'Erro de Execução'}
+                    {currentStatus === 'running' && 'Em Execução'}
+                    {currentStatus === 'stopping' && 'Interrompendo...'}
+                    {currentStatus === 'completed' && 'Finalizado'}
+                    {currentStatus === 'idle' && 'Ocioso'}
+                    {currentStatus === 'offline' && 'Servidor Offline'}
+                    {currentStatus === 'error' && 'Erro de Execução'}
                   </span>
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">Conexão Local</span>
+                  <span className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider block">
+                    {activeTab === 'create_accounts' ? 'Servidor Porta 5001' : 'Servidor Porta 5000'}
+                  </span>
                 </div>
               </div>
               
-              {botStatus === 'running' && (botProgress?.total ?? 0) > 0 && (
+              {currentStatus === 'running' && (currentProgress?.total ?? 0) > 0 && (
                 <div className="text-right">
                   <span className="text-sm font-black text-purple-600">
-                    {Math.round(((botProgress?.current ?? 0) / (botProgress?.total ?? 1)) * 100)}%
+                    {Math.round(((currentProgress?.current ?? 0) / (currentProgress?.total ?? 1)) * 100)}%
                   </span>
                   <span className="text-[9px] text-gray-400 block font-semibold">
-                    {botProgress?.current ?? 0}/{botProgress?.total ?? 0}
+                    {currentProgress?.current ?? 0}/{currentProgress?.total ?? 0}
                   </span>
                 </div>
               )}
             </div>
 
-            {botStatus === 'running' && botProgress?.current_user && (
+            {currentStatus === 'running' && currentProgress?.current_user && (
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] text-gray-500">
                   <span>Trabalhando no perfil alvo:</span>
-                  <span className="font-semibold text-purple-600">@{botProgress.current_user}</span>
+                  <span className="font-semibold text-purple-600">@{currentProgress.current_user}</span>
                 </div>
                 <div className="w-full bg-gray-100 rounded-full h-1.5">
                   <div 
                     className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${(botProgress?.total ?? 0) > 0 ? ((botProgress?.current ?? 0) / (botProgress?.total ?? 1)) * 100 : 0}%` }}
+                    style={{ width: `${(currentProgress?.total ?? 0) > 0 ? ((currentProgress?.current ?? 0) / (currentProgress?.total ?? 1)) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -1344,10 +1448,10 @@ const AccountAutomation: React.FC = () => {
             <div className="bg-gray-800/80 px-4 py-3 border-b border-gray-800 rounded-t-2xl flex items-center justify-between text-white">
               <div className="flex items-center gap-2 text-xs font-bold font-mono">
                 <Terminal size={14} className="text-pink-500" />
-                Console de Atividade (Real-time)
+                Console {activeTab === 'create_accounts' ? 'Criador' : 'Robô'} (Real-time)
               </div>
               <button 
-                onClick={() => setCampaignLogs([])}
+                onClick={() => activeTab === 'create_accounts' ? setCreatorLogs([]) : setCampaignLogs([])}
                 className="text-[10px] font-semibold text-gray-400 hover:text-white transition-colors uppercase tracking-wider"
               >
                 Limpar
@@ -1355,12 +1459,14 @@ const AccountAutomation: React.FC = () => {
             </div>
             
             <div className="flex-1 p-4 overflow-y-auto font-mono text-[11px] text-gray-300 space-y-2 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
-              {campaignLogs.length === 0 ? (
+              {currentLogs.length === 0 ? (
                 <div className="text-gray-600 text-center py-16 italic">
-                  Aguardando início de alguma atividade ou postagem automática para registrar os eventos...
+                  {activeTab === 'create_accounts' 
+                    ? 'Aguardando início da criação automática de contas para registrar os eventos...'
+                    : 'Aguardando início de alguma atividade ou postagem automática para registrar os eventos...'}
                 </div>
               ) : (
-                campaignLogs.map((log, idx) => {
+                currentLogs.map((log, idx) => {
                   const safeLog = typeof log === 'string' ? log : (log ? JSON.stringify(log) : '');
                   return (
                     <div 

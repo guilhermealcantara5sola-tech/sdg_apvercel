@@ -584,8 +584,16 @@ export async function postMedia(formData: FormData) {
   return await res.json();
 }
 
+const getCreatorApiBase = () => {
+  try {
+    return localStorage.getItem('creator_api_base_url') || 'http://localhost:5001';
+  } catch {
+    return 'http://localhost:5001';
+  }
+};
+
 export async function createAccounts(data: any) {
-  const res = await fetch(`${getApiBase()}/api/accounts/create`, {
+  const res = await fetch(`${getCreatorApiBase()}/api/accounts/create`, {
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(data)
@@ -597,14 +605,42 @@ export async function createAccounts(data: any) {
   return await res.json();
 }
 
+export async function fetchCreatorStatus() {
+  try {
+    const res = await fetch(`${getCreatorApiBase()}/api/bot/status`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch creator status');
+    return await res.json();
+  } catch (err) {
+    return {
+      status: 'offline',
+      progress: { current: 0, total: 0, current_user: '' },
+      logs: ['[SISTEMA] Servidor do Criador offline. Certifique-se de executar creator_server.exe na porta 5001.']
+    };
+  }
+}
+
+export async function stopCreator() {
+  const res = await fetch(`${getCreatorApiBase()}/api/bot/stop`, {
+    method: 'POST',
+    headers: getHeaders()
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to stop creator');
+  }
+  return await res.json();
+}
+
 export async function fetchSettings() {
-  const res = await fetch(`${getApiBase()}/api/settings`);
+  const res = await fetch(`${getCreatorApiBase()}/api/settings`);
   if (!res.ok) throw new Error('Falha ao buscar configurações');
   return await res.json();
 }
 
 export async function saveSettings(settings: any) {
-  const res = await fetch(`${getApiBase()}/api/settings`, {
+  const res = await fetch(`${getCreatorApiBase()}/api/settings`, {
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(settings)
@@ -614,7 +650,7 @@ export async function saveSettings(settings: any) {
 }
 
 export async function fetchFullAccounts() {
-  const res = await fetch(`${getApiBase()}/api/accounts/full`);
+  const res = await fetch(`${getCreatorApiBase()}/api/accounts/full`);
   if (!res.ok) throw new Error('Falha ao buscar contas completas');
   return await res.json();
 }

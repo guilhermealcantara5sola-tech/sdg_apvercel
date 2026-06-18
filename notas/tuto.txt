@@ -1,0 +1,57 @@
+  ──────
+  ### 1. Chave API do SMS-Activate
+
+  • O que é: É a sua chave de acesso ao site https://sms-activate.org. Este é um serviço profissional que aluga números de telefone virtuais temporários por alguns centavos para receber o SMS de confirmação
+  do Instagram.
+  • Como conseguir:
+      1. Crie uma conta gratuita no site https://sms-activate.org.
+      2. Adicione uma pequena recarga de saldo no site (por exemplo, alocar 2 ou 3 dólares via Pix/Cartão já é o suficiente para criar dezenas de contas, pois cada chip custa centavos).
+      3. No menu do site, vá no seu perfil e procure por "API Key" (Chave de API). Ela é um código longo com letras e números.
+      4. Copie essa chave e cole no seu sistema. O robô usará o seu saldo para comprar os números e ler o SMS automaticamente.
+
+
+  ### 2. País do Chip
+
+  • O que é: A nacionalidade do número de telefone que o robô vai comprar para criar a conta.
+  • Qual escolher:
+      • Brasil (ID: 73) é o recomendado porque o Instagram confia mais quando a conta é criada com um número brasileiro no Brasil.
+      • Países como a Rússia (ID: 0) ou Ucrânia (ID: 1) são mais baratos (custam ainda menos centavos), mas o Instagram pode pedir mais verificações por serem números de fora.
+
+
+  ### 3. Prefixo dos Usuários
+
+  • O que é: O início do nome de usuário (arroba) que a conta criada terá.
+  • Exemplo: Se você digitar  sdg , o robô criará contas com nomes como  @sdg_a3b9f ,  @sdg_p2x8q , etc. Você pode mudar para qualquer coisa que faça sentido para o seu negócio (ex:  promocao ,  suporte ,
+  marketing ).
+
+  ### 4. Senha Padrão (Opcional)
+
+  • O que é: A senha que você quer que todas as novas contas tenham.
+  • Como usar:
+      • Se você digitar  SenhaSegura123 , todas as contas criadas terão essa mesma senha, o que facilita o seu login manual nelas depois.
+      • Se deixar em branco, o robô inventará uma senha aleatória super forte para cada conta (e salvará tudo no seu painel para você não perder).
+
+
+  ### 5. Proxy Residencial (Opcional)
+
+  • O que é: Um endereço de internet (IP) emprestado. Ele faz o Instagram achar que você está criando a conta a partir de uma casa comum com uma internet comum.
+  • Como usar:
+      • Se for criar apenas 1 ou 2 contas: Pode deixar este campo totalmente em branco.
+      • Se for criar muitas contas (5, 10 ou mais): É obrigatório usar um proxy. Se você tentar criar muitas contas usando a internet da sua própria casa seguidamente, o Instagram bloqueará a criação
+      imediatamente por achar que é uma atividade hacker. Você precisaria contratar um serviço de proxy residencial pago (ex: Proxy-Seller, Asocks, etc.) para colocar a informação aqui.
+
+
+  ### 6. Quantidade de Contas
+
+  • O que é: O número de contas que você deseja que o robô crie em sequência nessa execução.
+  • Exemplo: Se você digitar  3 , o robô abrirá o navegador, criará a primeira conta, fechará, aguardará alguns segundos, abrirá de novo e criará a segunda, e depois a terceira.
+  ──────
+  ### Resumo para começar:
+
+  Para testar o sistema agora de forma simples e barata:
+
+  1. Cadastre-se no https://sms-activate.org e coloque R$ 10 ou R$ 15 de saldo.
+  2. Copie a sua Chave API gerada lá.
+  3. No seu painel: cole a chave, selecione Brasil, defina o prefixo e deixe a senha e o proxy em branco.
+  4. Escolha 1 conta para testar.
+  5. Clique em Iniciar Criação e assista o robô abrir o navegador e fazer o trabalho na sua tela!

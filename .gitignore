@@ -37,6 +37,7 @@ token.txt
 
 # PyInstaller Outputs
 /server.exe
+/creator_server.exe
 *.spec
 build/
 dist/
