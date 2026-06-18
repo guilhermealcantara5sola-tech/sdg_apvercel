@@ -2267,7 +2267,20 @@ pause"""
 
     # 2. criar creator.py
     creator_path = os.path.join(BASE_DIR, 'creator.py')
-    if not os.path.exists(creator_path):
+    should_create = True
+    if os.path.exists(creator_path):
+        try:
+            with open(creator_path, 'r', encoding='utf-8') as f:
+                existing_content = f.read()
+            # Se for uma versão antiga que usa country-code ou não tem FivesimAPI, força a re-criação
+            if "country-code" in existing_content or "FivesimAPI" not in existing_content:
+                should_create = True
+            else:
+                should_create = False
+        except Exception:
+            pass
+
+    if should_create:
         try:
             creator_code = r"""import os
 import sys
