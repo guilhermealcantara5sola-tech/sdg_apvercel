@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { fetchSavedAccounts } from '../utils/api';
-import { Cpu, Users, MessageSquare, Heart, Sparkles, AlertTriangle, ShieldCheck, TrendingUp, HelpCircle } from 'lucide-react';
+import { Cpu, Users, MessageSquare, Heart, Sparkles, AlertTriangle, ShieldCheck, TrendingUp } from 'lucide-react';
 
 const Analytics: React.FC = () => {
   const [totalAccounts, setTotalAccounts] = useState(0);

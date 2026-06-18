@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Send, Users, Grid, BarChart2, Settings, LogOut, X, Cpu } from 'lucide-react';
+import { Home, Send, BarChart2, Settings, LogOut, X, Cpu } from 'lucide-react';
 
 interface SidebarProps {
   isOpen: boolean;

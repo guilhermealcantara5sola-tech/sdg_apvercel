@@ -114,6 +114,51 @@ const AccountAutomation: React.FC = () => {
   const [postingStatus, setPostingStatus] = useState<string>('');
   const [isPosting, setIsPosting] = useState(false);
 
+  // Combina e ordena os logs pelo timestamp [HH:MM:SS]
+  const getUnifiedLogs = () => {
+    const formattedBotLogs = campaignLogs.map(log => {
+      const str = typeof log === 'string' ? log : JSON.stringify(log);
+      return str.includes('[ROBÔ]') || str.includes('[SISTEMA]') ? str : `[ROBÔ] ${str}`;
+    });
+    const formattedCreatorLogs = creatorLogs.map(log => {
+      const str = typeof log === 'string' ? log : JSON.stringify(log);
+      return str.includes('[CRIADOR]') || str.includes('[SISTEMA]') ? str : `[CRIADOR] ${str}`;
+    });
+    const allLogs = [...formattedBotLogs, ...formattedCreatorLogs];
+    return allLogs.sort((a, b) => {
+      const timeA = a.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
+      const timeB = b.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
+      if (timeA && timeB) {
+        return timeA.localeCompare(timeB);
+      }
+      return 0;
+    });
+  };
+
+  const handleCopyConsole = () => {
+    const logs = 
+      consoleMode === 'unified' 
+        ? getUnifiedLogs() 
+        : consoleMode === 'creator' 
+        ? creatorLogs 
+        : campaignLogs;
+    if (logs.length === 0) return;
+    const textToCopy = logs.join('\n');
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedConsole(true);
+    setTimeout(() => setCopiedConsole(false), 2000);
+  };
+
+  // Context-aware sidebar variables based on active tab (Port 5000 vs 5001)
+  const currentStatus = activeTab === 'create_accounts' ? creatorStatus : botStatus;
+  const currentProgress = activeTab === 'create_accounts' ? creatorProgress : botProgress;
+  const currentLogs = 
+    consoleMode === 'unified' 
+      ? getUnifiedLogs() 
+      : consoleMode === 'creator' 
+      ? creatorLogs 
+      : campaignLogs;
+
   const logEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
   
@@ -566,51 +611,6 @@ const AccountAutomation: React.FC = () => {
   const filteredSystemLeads = systemLeads.filter(lead => 
     lead.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  // Combina e ordena os logs pelo timestamp [HH:MM:SS]
-  const getUnifiedLogs = () => {
-    const formattedBotLogs = campaignLogs.map(log => {
-      const str = typeof log === 'string' ? log : JSON.stringify(log);
-      return str.includes('[ROBÔ]') || str.includes('[SISTEMA]') ? str : `[ROBÔ] ${str}`;
-    });
-    const formattedCreatorLogs = creatorLogs.map(log => {
-      const str = typeof log === 'string' ? log : JSON.stringify(log);
-      return str.includes('[CRIADOR]') || str.includes('[SISTEMA]') ? str : `[CRIADOR] ${str}`;
-    });
-    const allLogs = [...formattedBotLogs, ...formattedCreatorLogs];
-    return allLogs.sort((a, b) => {
-      const timeA = a.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
-      const timeB = b.match(/\[(\d{2}:\d{2}:\d{2})\]/)?.[1] || '';
-      if (timeA && timeB) {
-        return timeA.localeCompare(timeB);
-      }
-      return 0;
-    });
-  };
-
-  const handleCopyConsole = () => {
-    const logs = 
-      consoleMode === 'unified' 
-        ? getUnifiedLogs() 
-        : consoleMode === 'creator' 
-        ? creatorLogs 
-        : campaignLogs;
-    if (logs.length === 0) return;
-    const textToCopy = logs.join('\n');
-    navigator.clipboard.writeText(textToCopy);
-    setCopiedConsole(true);
-    setTimeout(() => setCopiedConsole(false), 2000);
-  };
-
-  // Context-aware sidebar variables based on active tab (Port 5000 vs 5001)
-  const currentStatus = activeTab === 'create_accounts' ? creatorStatus : botStatus;
-  const currentProgress = activeTab === 'create_accounts' ? creatorProgress : botProgress;
-  const currentLogs = 
-    consoleMode === 'unified' 
-      ? getUnifiedLogs() 
-      : consoleMode === 'creator' 
-      ? creatorLogs 
-      : campaignLogs;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
