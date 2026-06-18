@@ -1655,7 +1655,7 @@ def accounts_create_route():
 
     data = request.json or {}
     sms_key = data.get('sms_key', '').strip()
-    country_code = data.get('country_code', 73)
+    country = data.get('country', 'brazil').strip()
     username_prefix = data.get('username_prefix', 'sdg').strip()
     password = data.get('password', '').strip()
     proxy = data.get('proxy', '').strip()
@@ -1665,13 +1665,13 @@ def accounts_create_route():
     settings = load_settings()
     if sms_key:
         settings['sms_activate_key'] = sms_key
-        settings['country_code'] = country_code
+        settings['country'] = country
         settings['username_prefix'] = username_prefix
         settings['proxy'] = proxy
         save_settings(settings)
     else:
         sms_key = settings.get('sms_activate_key', '')
-        country_code = settings.get('country_code', 73)
+        country = settings.get('country', 'brazil')
         username_prefix = settings.get('username_prefix', 'sdg')
         proxy = settings.get('proxy', '')
 
@@ -1690,8 +1690,8 @@ def accounts_create_route():
         
         if sms_key:
             cmd.extend(["--sms-key", sms_key])
-        if country_code:
-            cmd.extend(["--country-code", str(country_code)])
+        if country:
+            cmd.extend(["--country", country])
         if username_prefix:
             cmd.extend(["--username-prefix", username_prefix])
         if password:
@@ -2231,40 +2231,52 @@ def log(msg, level="INFO"):
     print(f"[{timestamp}] [{level}] {msg}")
     sys.stdout.flush()
 
-class SMSActivateAPI:
+class FivesimAPI:
     def __init__(self, api_key):
         self.api_key = api_key
-        self.url = "https://api.sms-activate.org/stubs/handler_api.php"
+        self.headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Accept": "application/json"
+        }
+        self.url = "https://5sim.net/v1/user"
 
     def get_balance(self):
         try:
-            res = requests.get(f"{self.url}?api_key={self.api_key}&action=getBalance", timeout=10)
-            if res.text.startswith("ACCESS_BALANCE:"):
-                return float(res.text.split(":")[1])
+            res = requests.get(f"{self.url}/profile", headers=self.headers, timeout=10)
+            if res.status_code == 200:
+                return float(res.json().get("balance", 0.0))
             return 0.0
         except Exception as e:
-            log(f"Erro ao verificar saldo SMS: {e}", "ERRO")
+            log(f"Erro ao verificar saldo 5sim: {e}", "ERRO")
             return 0.0
 
-    def get_number(self, country_code=73):
-        url = f"{self.url}?api_key={self.api_key}&action=getNumber&service=ig&country={country_code}"
-        res = requests.get(url, timeout=15)
-        if res.text.startswith("ACCESS_NUMBER:"):
-            parts = res.text.split(":")
-            activation_id = parts[1]
-            number = parts[2]
+    def get_number(self, country="brazil"):
+        url = f"{self.url}/buy/activation/{country}/any/instagram"
+        res = requests.get(url, headers=self.headers, timeout=15)
+        if res.status_code == 200:
+            data = res.json()
+            activation_id = data["id"]
+            number = data["phone"]
             return activation_id, number
-        raise Exception(f"Resposta SMS-Activate inválida: {res.text}")
+        raise Exception(f"Erro 5sim ao obter número (Status {res.status_code}): {res.text}")
 
-    def get_status(self, activation_id):
-        url = f"{self.url}?api_key={self.api_key}&action=getStatus&id={activation_id}"
-        res = requests.get(url, timeout=10)
-        return res.text
+    def get_sms_code(self, activation_id):
+        url = f"{self.url}/check/{activation_id}"
+        res = requests.get(url, headers=self.headers, timeout=10)
+        if res.status_code == 200:
+            data = res.json()
+            sms_list = data.get("sms", [])
+            if sms_list:
+                return sms_list[0].get("code") or sms_list[0].get("text")
+        return None
 
-    def set_status(self, activation_id, status_code):
-        # 6 = completar ativação, 8 = cancelar
-        url = f"{self.url}?api_key={self.api_key}&action=setStatus&status={status_code}&id={activation_id}"
-        requests.get(url, timeout=10)
+    def finish_order(self, activation_id):
+        url = f"{self.url}/finish/{activation_id}"
+        requests.get(url, headers=self.headers, timeout=10)
+
+    def cancel_order(self, activation_id):
+        url = f"{self.url}/cancel/{activation_id}"
+        requests.get(url, headers=self.headers, timeout=10)
 
 def generate_random_name():
     first_names = [
@@ -2298,8 +2310,8 @@ def create_instagram_account(args, sms_api, account_idx):
 
     if sms_api:
         try:
-            log(f"Solicitando número de telefone (País ID: {args.country_code}) no SMS-Activate...", "SMS")
-            activation_id, phone_number = sms_api.get_number(args.country_code)
+            log(f"Solicitando número de telefone (País: {args.country}) no 5sim.net...", "SMS")
+            activation_id, phone_number = sms_api.get_number(args.country)
             if not phone_number.startswith("+"):
                 phone_number = f"+{phone_number}"
             log(f"Número obtido: {phone_number} (Ativação ID: {activation_id})", "SMS")
@@ -2355,7 +2367,7 @@ def create_instagram_account(args, sms_api, account_idx):
                 cookie_buttons = page.query_selector_all("button:has-text('Permitir todos os cookies'), button:has-text('Aceitar tudo'), button:has-text('Accept')")
                 if cookie_buttons:
                     cookie_buttons[0].click()
-                    log("Cookies aceitos com sucesso.", "INFO")
+                    log("Cookies aceitos.", "INFO")
                     time.sleep(2)
             except Exception:
                 pass
@@ -2400,29 +2412,25 @@ def create_instagram_account(args, sms_api, account_idx):
                 else:
                     log("ERRO: Tempo limite excedido para resolução do Captcha.", "ERRO")
                     if sms_api and activation_id:
-                        sms_api.set_status(activation_id, 8)
+                        sms_api.cancel_order(activation_id)
                     browser.close()
                     return False
 
             if sms_api and activation_id:
-                log("Aguardando código de SMS do Instagram...", "SMS")
+                log("Aguardando código de SMS do Instagram no 5sim.net...", "SMS")
                 sms_code = None
                 for attempt in range(36):
-                    status = sms_api.get_status(activation_id)
-                    if status.startswith("STATUS_OK:"):
-                        sms_code = status.split(":")[1]
+                    sms_code = sms_api.get_sms_code(activation_id)
+                    if sms_code:
                         log(f"Código recebido: {sms_code}", "SMS")
                         break
-                    elif status == "STATUS_WAIT_CODE":
-                        if attempt % 6 == 0:
-                            log("Aguardando código SMS (verificando novamente em 5s)...", "SMS")
-                    else:
-                        log(f"Status SMS inesperado: {status}", "AVISO")
+                    if attempt % 6 == 0:
+                        log("Aguardando código SMS (verificando novamente em 5s)...", "SMS")
                     time.sleep(5)
 
                 if not sms_code:
                     log("ERRO: Tempo esgotado para o código de SMS chegar.", "ERRO")
-                    sms_api.set_status(activation_id, 8)
+                    sms_api.cancel_order(activation_id)
                     browser.close()
                     return False
 
@@ -2454,7 +2462,7 @@ def create_instagram_account(args, sms_api, account_idx):
             if success:
                 log(f"SUCESSO: Conta @{username} criada e validada com sucesso!", "SUCESSO")
                 if sms_api and activation_id:
-                    sms_api.set_status(activation_id, 6)
+                    sms_api.finish_order(activation_id)
                 
                 accounts_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'accounts.json')
                 accounts_dict = {}
@@ -2476,16 +2484,16 @@ def create_instagram_account(args, sms_api, account_idx):
                 browser.close()
                 return True
             else:
-                log("ERRO: Falha ao validar criação da conta. Pode ter ocorrido um bloqueio tardio do Instagram.", "ERRO")
+                log("ERRO: Falha ao validar criação da conta. A conta pode ter sido restrita.", "ERRO")
                 if sms_api and activation_id:
-                    sms_api.set_status(activation_id, 8)
+                    sms_api.cancel_order(activation_id)
                 browser.close()
                 return False
 
         except Exception as e:
             log(f"Ocorreu um erro no fluxo do navegador: {str(e)}", "ERRO")
             if sms_api and activation_id:
-                sms_api.set_status(activation_id, 8)
+                sms_api.cancel_order(activation_id)
             try:
                 browser.close()
             except Exception:
@@ -2493,9 +2501,9 @@ def create_instagram_account(args, sms_api, account_idx):
             return False
 
 def main():
-    parser = argparse.ArgumentParser(description="Criador Automático de Contas Instagram")
-    parser.add_argument("--sms-key", help="Chave de API do SMS-Activate")
-    parser.add_argument("--country-code", type=int, default=73, help="Código do país para o SMS (Padrão: 73 - Brasil)")
+    parser = argparse.ArgumentParser(description="Criador Automático de Contas Instagram (5sim.net)")
+    parser.add_argument("--sms-key", help="Chave de API do 5sim.net")
+    parser.add_argument("--country", default="brazil", help="País para o SMS no 5sim (Padrão: brazil)")
     parser.add_argument("--username-prefix", default="sdg", help="Prefixo dos usuários criados")
     parser.add_argument("--password", help="Senha padrão para as contas criadas (se omitido, será aleatória)")
     parser.add_argument("--proxy", help="Proxy no formato IP:PORTA ou IP:PORTA:USER:PASS")
@@ -2504,16 +2512,16 @@ def main():
     args = parser.parse_args()
 
     log("==================================================", "INFO")
-    log("   Criador Automático de Contas do Instagram      ", "INFO")
+    log("   Criador Automático de Contas (5sim.net)        ", "INFO")
     log("==================================================", "INFO")
 
     sms_api = None
     if args.sms_key:
-        sms_api = SMSActivateAPI(args.sms_key)
+        sms_api = FivesimAPI(args.sms_key)
         balance = sms_api.get_balance()
-        log(f"Conectado ao SMS-Activate. Saldo disponível: R$ {balance:.2f}", "SMS")
+        log(f"Conectado ao 5sim.net. Saldo disponível: R$ {balance:.2f}", "SMS")
         if balance <= 0.0:
-            log("AVISO: Seu saldo no SMS-Activate está zerado. A compra de números pode falhar.", "AVISO")
+            log("AVISO: Seu saldo no 5sim.net está zerado. A compra de números pode falhar.", "AVISO")
     else:
         log("Nenhuma chave de SMS informada. Tentando criar sem verificação de chip (não recomendado).", "AVISO")
 

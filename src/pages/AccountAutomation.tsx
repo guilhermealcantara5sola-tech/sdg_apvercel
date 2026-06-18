@@ -43,7 +43,7 @@ const AccountAutomation: React.FC = () => {
 
   // 4. Tab Criar Contas
   const [smsKey, setSmsKey] = useState(() => localStorage.getItem('sms_activate_key') || '');
-  const [countryCode, setCountryCode] = useState(73); // 73 is Brazil
+  const [country, setCountry] = useState('brazil'); 
   const [usernamePrefix, setUsernamePrefix] = useState('sdg');
   const [createPassword, setCreatePassword] = useState('');
   const [createProxy, setCreateProxy] = useState('');
@@ -121,7 +121,7 @@ const AccountAutomation: React.FC = () => {
     try {
       const settings = await fetchSettings();
       if (settings.sms_activate_key) setSmsKey(settings.sms_activate_key);
-      if (settings.country_code) setCountryCode(Number(settings.country_code));
+      if (settings.country) setCountry(settings.country);
       if (settings.username_prefix) setUsernamePrefix(settings.username_prefix);
       if (settings.proxy) setCreateProxy(settings.proxy);
     } catch (err) {
@@ -379,7 +379,7 @@ const AccountAutomation: React.FC = () => {
     try {
       await createAccounts({
         sms_key: smsKey,
-        country_code: countryCode,
+        country: country,
         username_prefix: usernamePrefix,
         password: createPassword,
         proxy: createProxy,
@@ -991,12 +991,12 @@ const AccountAutomation: React.FC = () => {
                   
                   {/* SMS API KEY */}
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-600 block">Chave API do SMS-Activate</label>
+                    <label className="text-xs font-semibold text-gray-600 block">Chave API do 5sim.net</label>
                     <input
                       type="text"
                       value={smsKey}
                       onChange={(e) => setSmsKey(e.target.value)}
-                      placeholder="Insira sua API Key do sms-activate.org"
+                      placeholder="Insira sua API Key do 5sim.net"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
                       required
                     />
@@ -1005,19 +1005,19 @@ const AccountAutomation: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* COUNTRY CODE */}
+                  {/* COUNTRY */}
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-600 block">País do Chip</label>
                     <select
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(Number(e.target.value))}
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
                     >
-                      <option value={73}>Brasil (ID: 73) - Recomendado</option>
-                      <option value={0}>Rússia (ID: 0) - Mais barato</option>
-                      <option value={1}>Ucrânia (ID: 1)</option>
-                      <option value={22}>Colômbia (ID: 22)</option>
-                      <option value={187}>Estados Unidos (ID: 187)</option>
+                      <option value="brazil">Brasil - Recomendado</option>
+                      <option value="russia">Rússia - Mais barato</option>
+                      <option value="ukraine">Ucrânia</option>
+                      <option value="colombia">Colômbia</option>
+                      <option value="usa">Estados Unidos</option>
                     </select>
                   </div>
 
