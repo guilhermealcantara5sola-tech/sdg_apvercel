@@ -105,6 +105,23 @@ creator_process = None
 
 ACCOUNTS_FILE = os.path.join(BASE_DIR, 'accounts.json')
 LIVE_CACHE_FILE = os.path.join(BASE_DIR, 'live_cache.json')
+SETTINGS_FILE = os.path.join(BASE_DIR, 'settings.json')
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+def save_settings(settings):
+    try:
+        with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(settings, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
 
 def load_saved_accounts():
     if os.path.exists(ACCOUNTS_FILE):
@@ -1614,6 +1631,21 @@ def post_media():
     threading.Thread(target=run_post_task).start()
     return jsonify({"status": "started", "message": "Automação de postagem iniciada em segundo plano!"})
 
+# Rota para obter configurações salvas no servidor (ex: chave SMS)
+@app.route('/api/settings', methods=['GET'])
+def get_settings_route():
+    return jsonify(load_settings())
+
+# Rota para salvar configurações no servidor
+@app.route('/api/settings', methods=['POST'])
+def save_settings_route():
+    data = request.json or {}
+    settings = load_settings()
+    for k, v in data.items():
+        settings[k] = v
+    save_settings(settings)
+    return jsonify({"status": "success", "message": "Configurações salvas!"})
+
 # Rota para criar contas de forma automatizada usando creator.py
 @app.route('/api/accounts/create', methods=['POST'])
 def accounts_create_route():
@@ -1628,6 +1660,20 @@ def accounts_create_route():
     password = data.get('password', '').strip()
     proxy = data.get('proxy', '').strip()
     count = int(data.get('count', 1))
+
+    # Salva ou carrega as configurações no servidor
+    settings = load_settings()
+    if sms_key:
+        settings['sms_activate_key'] = sms_key
+        settings['country_code'] = country_code
+        settings['username_prefix'] = username_prefix
+        settings['proxy'] = proxy
+        save_settings(settings)
+    else:
+        sms_key = settings.get('sms_activate_key', '')
+        country_code = settings.get('country_code', 73)
+        username_prefix = settings.get('username_prefix', 'sdg')
+        proxy = settings.get('proxy', '')
 
     bot_logs.clear()
     bot_status = "running"

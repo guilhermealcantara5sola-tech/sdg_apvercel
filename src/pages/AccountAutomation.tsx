@@ -8,7 +8,9 @@ import {
   stopBot, 
   fetchBotStatus, 
   fetchFollowers,
-  createAccounts
+  createAccounts,
+  fetchSettings,
+  saveSettings
 } from '../utils/api';
 import { 
   UserPlus, 
@@ -115,9 +117,22 @@ const AccountAutomation: React.FC = () => {
     }
   };
 
+  const loadSettingsFromServer = async () => {
+    try {
+      const settings = await fetchSettings();
+      if (settings.sms_activate_key) setSmsKey(settings.sms_activate_key);
+      if (settings.country_code) setCountryCode(Number(settings.country_code));
+      if (settings.username_prefix) setUsernamePrefix(settings.username_prefix);
+      if (settings.proxy) setCreateProxy(settings.proxy);
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  };
+
   useEffect(() => {
     loadAccounts();
     loadSystemLeads();
+    loadSettingsFromServer();
   }, []);
 
   // Poll Bot Status when campaign is running

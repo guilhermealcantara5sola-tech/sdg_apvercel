@@ -597,3 +597,19 @@ export async function createAccounts(data: any) {
   return await res.json();
 }
 
+export async function fetchSettings() {
+  const res = await fetch(`${getApiBase()}/api/settings`);
+  if (!res.ok) throw new Error('Falha ao buscar configurações');
+  return await res.json();
+}
+
+export async function saveSettings(settings: any) {
+  const res = await fetch(`${getApiBase()}/api/settings`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify(settings)
+  });
+  if (!res.ok) throw new Error('Falha ao salvar configurações');
+  return await res.json();
+}
+
