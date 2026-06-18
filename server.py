@@ -1713,9 +1713,33 @@ def accounts_create_route():
         import subprocess
         import shlex
         
+        # Encontra o executável do Python correto (evita que server.exe chame a si mesmo se compilado)
+        python_exe = "python"
+        if getattr(sys, 'frozen', False):
+            # Se for compilado, procuramos no sistema e nos caminhos padrão da instalação automática
+            possible_pythons = [
+                "python",
+                "python3",
+                os.path.join(os.environ.get("USERPROFILE", ""), r"AppData\Local\Programs\Python\Python311\python.exe"),
+                r"C:\Program Files\Python311\python.exe",
+                os.path.join(os.environ.get("USERPROFILE", ""), r"AppData\Local\Programs\Python\Python311-32\python.exe"),
+                r"C:\Program Files\Python311-32\python.exe",
+            ]
+            for py in possible_pythons:
+                if os.path.isabs(py):
+                    if os.path.exists(py):
+                        python_exe = py
+                        break
+                else:
+                    import shutil
+                    if shutil.which(py):
+                        python_exe = py
+                        break
+        else:
+            python_exe = sys.executable
+
         # Constrói comando para executar o script creator.py
-        # Usamos sys.executable para chamar o mesmo interpretador Python (ou server.exe se compilado)
-        cmd = [sys.executable, os.path.join(BASE_DIR, "creator.py")]
+        cmd = [python_exe, os.path.join(BASE_DIR, "creator.py")]
         
         if sms_key:
             cmd.extend(["--sms-key", sms_key])

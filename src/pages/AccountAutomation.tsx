@@ -1311,15 +1311,19 @@ const AccountAutomation: React.FC = () => {
                 </div>
               </div>
               
-              {botStatus === 'running' && botProgress.total > 0 && (
+              {botStatus === 'running' && (botProgress?.total ?? 0) > 0 && (
                 <div className="text-right">
-                  <span className="text-sm font-black text-purple-600">{Math.round((botProgress.current / botProgress.total) * 100)}%</span>
-                  <span className="text-[9px] text-gray-400 block font-semibold">{botProgress.current}/{botProgress.total}</span>
+                  <span className="text-sm font-black text-purple-600">
+                    {Math.round(((botProgress?.current ?? 0) / (botProgress?.total ?? 1)) * 100)}%
+                  </span>
+                  <span className="text-[9px] text-gray-400 block font-semibold">
+                    {botProgress?.current ?? 0}/{botProgress?.total ?? 0}
+                  </span>
                 </div>
               )}
             </div>
 
-            {botStatus === 'running' && botProgress.current_user && (
+            {botStatus === 'running' && botProgress?.current_user && (
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px] text-gray-500">
                   <span>Trabalhando no perfil alvo:</span>
@@ -1328,7 +1332,7 @@ const AccountAutomation: React.FC = () => {
                 <div className="w-full bg-gray-100 rounded-full h-1.5">
                   <div 
                     className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${(botProgress.current / botProgress.total) * 100}%` }}
+                    style={{ width: `${(botProgress?.total ?? 0) > 0 ? ((botProgress?.current ?? 0) / (botProgress?.total ?? 1)) * 100 : 0}%` }}
                   />
                 </div>
               </div>
@@ -1356,20 +1360,23 @@ const AccountAutomation: React.FC = () => {
                   Aguardando início de alguma atividade ou postagem automática para registrar os eventos...
                 </div>
               ) : (
-                campaignLogs.map((log, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`leading-relaxed border-l-2 pl-2 ${
-                      log.includes('SUCESSO') 
-                        ? 'text-emerald-400 border-emerald-500' 
-                        : log.includes('ERRO') || log.includes('AVISO')
-                        ? 'text-rose-400 border-rose-500'
-                        : 'text-gray-300 border-purple-500'
-                    }`}
-                  >
-                    {log}
-                  </div>
-                ))
+                campaignLogs.map((log, idx) => {
+                  const safeLog = typeof log === 'string' ? log : (log ? JSON.stringify(log) : '');
+                  return (
+                    <div 
+                      key={idx} 
+                      className={`leading-relaxed border-l-2 pl-2 ${
+                        safeLog.includes('SUCESSO') 
+                          ? 'text-emerald-400 border-emerald-500' 
+                          : safeLog.includes('ERRO') || safeLog.includes('AVISO')
+                          ? 'text-rose-400 border-rose-500'
+                          : 'text-gray-300 border-purple-500'
+                      }`}
+                    >
+                      {safeLog}
+                    </div>
+                  );
+                })
               )}
               <div ref={logEndRef} />
             </div>
