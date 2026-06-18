@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layout/MainLayout';
-import Dashboard from './pages/Dashboard';
 import Broadcast from './pages/Broadcast';
 import Leads from './pages/Leads';
 import Posts from './pages/Posts';
@@ -45,7 +44,7 @@ function App() {
             )
           }
         >
-          <Route index element={<Dashboard />} />
+          <Route index element={<Navigate to="/automation" replace />} />
           <Route path="broadcast" element={<Broadcast />} />
           <Route path="leads" element={<Leads />} />
           <Route path="posts" element={<Posts />} />
