@@ -29,8 +29,10 @@ export async function fetchAllLeadsFromSupabase() {
   let offset = 0;
   const limit = 1000;
   let hasMore = true;
+  let iterations = 0;
 
-  while (hasMore) {
+  while (hasMore && iterations < 3) {
+    iterations++;
     const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?select=*&order=username.asc&limit=${limit}&offset=${offset}`, {
       headers: {
         "apikey": SUPABASE_KEY,
