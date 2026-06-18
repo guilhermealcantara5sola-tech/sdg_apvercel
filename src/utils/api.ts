@@ -613,3 +613,9 @@ export async function saveSettings(settings: any) {
   return await res.json();
 }
 
+export async function fetchFullAccounts() {
+  const res = await fetch(`${getApiBase()}/api/accounts/full`);
+  if (!res.ok) throw new Error('Falha ao buscar contas completas');
+  return await res.json();
+}
+

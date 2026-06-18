@@ -146,6 +146,35 @@ def get_saved_accounts():
     # Retorna apenas os nomes de usuário por segurança
     return jsonify([{"username": username} for username in accounts_dict.keys()])
 
+# Obter lista completa de contas (com senhas)
+@app.route('/api/accounts/full', methods=['GET'])
+def get_saved_accounts_full():
+    accounts_dict = load_saved_accounts()
+    return jsonify([{"username": username, "password": password} for username, password in accounts_dict.items()])
+
+# Exportar contas formatadas em arquivo TXT (usuario:senha)
+@app.route('/api/accounts/export', methods=['GET'])
+def export_accounts_txt():
+    accounts_dict = load_saved_accounts()
+    content = ""
+    for username, password in accounts_dict.items():
+        content += f"{username}:{password}\n"
+    from flask import Response
+    return Response(
+        content,
+        mimetype="text/plain",
+        headers={"Content-disposition": "attachment; filename=contas_geradas.txt"}
+    )
+
+# Exportar contas em arquivo JSON
+@app.route('/api/accounts/export-json', methods=['GET'])
+def export_accounts_json():
+    from flask import send_file
+    if os.path.exists(ACCOUNTS_FILE):
+        return send_file(ACCOUNTS_FILE, as_attachment=True, download_name="contas_geradas.json")
+    else:
+        return jsonify({"error": "Nenhuma conta gerada ainda"}), 404
+
 # Adicionar/Salvar conta no computador
 @app.route('/api/accounts', methods=['POST'])
 def add_saved_account():

@@ -9,7 +9,8 @@ import {
   fetchBotStatus, 
   fetchFollowers,
   createAccounts,
-  fetchSettings
+  fetchSettings,
+  fetchFullAccounts
 } from '../utils/api';
 import { 
   UserPlus, 
@@ -26,7 +27,11 @@ import {
   Upload, 
   FileAudio,
   Sparkles,
-  Search
+  Search,
+  Download,
+  Copy,
+  Check,
+  ExternalLink
 } from 'lucide-react';
 
 
@@ -38,7 +43,17 @@ interface Account {
 
 const AccountAutomation: React.FC = () => {
   // Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'accounts' | 'boosting' | 'posts' | 'create_accounts'>('accounts');
+  const [activeTab, rawSetActiveTab] = useState<'accounts' | 'boosting' | 'posts' | 'create_accounts'>(
+    () => (localStorage.getItem('active_tab') as any) || 'accounts'
+  );
+
+  const setActiveTab = (tab: 'accounts' | 'boosting' | 'posts' | 'create_accounts') => {
+    rawSetActiveTab(tab);
+    localStorage.setItem('active_tab', tab);
+  };
+
+  // Copy feedback state
+  const [copiedUser, setCopiedUser] = useState<string | null>(null);
 
   // 4. Tab Criar Contas
   const [smsKey, setSmsKey] = useState(() => localStorage.getItem('sms_activate_key') || '');
@@ -48,6 +63,7 @@ const AccountAutomation: React.FC = () => {
   const [createProxy, setCreateProxy] = useState('');
   const [createCount, setCreateCount] = useState(1);
   const [isCreating, setIsCreating] = useState(false);
+  const [fullAccounts, setFullAccounts] = useState<{ username: string, password?: string }[]>([]);
 
   // Connection settings
   const [apiUrl] = useState(() => localStorage.getItem('api_base_url') || 'http://localhost:5000');
@@ -118,13 +134,24 @@ const AccountAutomation: React.FC = () => {
 
   const loadSettingsFromServer = async () => {
     try {
-      const settings = await fetchSettings();
-      if (settings.sms_activate_key) setSmsKey(settings.sms_activate_key);
-      if (settings.country) setCountry(settings.country);
-      if (settings.username_prefix) setUsernamePrefix(settings.username_prefix);
-      if (settings.proxy) setCreateProxy(settings.proxy);
+      const data = await fetchSettings();
+      if (data) {
+        if (data.sms_activate_key) setSmsKey(data.sms_activate_key);
+        if (data.country) setCountry(data.country);
+        if (data.username_prefix) setUsernamePrefix(data.username_prefix);
+        if (data.proxy) setCreateProxy(data.proxy);
+      }
     } catch (err) {
       console.error('Error fetching settings:', err);
+    }
+  };
+
+  const loadFullAccounts = async () => {
+    try {
+      const data = await fetchFullAccounts();
+      setFullAccounts(data);
+    } catch (err) {
+      console.error('Error fetching full accounts:', err);
     }
   };
 
@@ -132,6 +159,7 @@ const AccountAutomation: React.FC = () => {
     loadAccounts();
     loadSystemLeads();
     loadSettingsFromServer();
+    loadFullAccounts();
   }, []);
 
   // Poll Bot Status when campaign is running
@@ -140,10 +168,17 @@ const AccountAutomation: React.FC = () => {
     const checkStatus = async () => {
       try {
         const state = await fetchBotStatus();
+        const prevStatus = botStatus;
         setBotStatus(state.status);
         setBotProgress(state.progress);
         if (state.logs) {
           setCampaignLogs(state.logs);
+        }
+
+        // Se terminou ou parou, atualiza a lista de contas na mesma hora
+        if (state.status !== 'running' && state.status !== 'stopping' && prevStatus === 'running') {
+          loadAccounts();
+          loadFullAccounts();
         }
         
         if (state.status === 'running' || state.status === 'stopping') {
@@ -390,6 +425,48 @@ const AccountAutomation: React.FC = () => {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleExportTXT = () => {
+    if (fullAccounts.length === 0) {
+      alert('Nenhuma conta gerada/salva para exportar.');
+      return;
+    }
+    const content = fullAccounts.map(acc => `${acc.username}:${acc.password || ''}`).join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'contas_geradas.txt');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportJSON = () => {
+    if (fullAccounts.length === 0) {
+      alert('Nenhuma conta gerada/salva para exportar.');
+      return;
+    }
+    const dict: Record<string, string> = {};
+    fullAccounts.forEach(acc => {
+      dict[acc.username] = acc.password || '';
+    });
+    const content = JSON.stringify(dict, null, 2);
+    const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'contas_geradas.json');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCopyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedUser(id);
+    setTimeout(() => setCopiedUser(null), 2000);
   };
 
   // Filtering leads search
@@ -1105,6 +1182,100 @@ const AccountAutomation: React.FC = () => {
                   )}
                 </div>
               </form>
+
+              {/* LISTA DE CONTAS GERADAS */}
+              <div className="border-t border-gray-100 pt-6 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                      Contas Criadas no Sistema
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                        {fullAccounts.length}
+                      </span>
+                    </h3>
+                    <p className="text-gray-500 text-xs mt-0.5">
+                      Veja abaixo todas as contas geradas com usuário e senha salvos no robô.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleExportTXT}
+                      type="button"
+                      disabled={fullAccounts.length === 0}
+                      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50 disabled:hover:bg-gray-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      title="Baixar arquivo TXT formatado como usuario:senha"
+                    >
+                      <Download size={13} />
+                      Exportar TXT
+                    </button>
+                    <button
+                      onClick={handleExportJSON}
+                      type="button"
+                      disabled={fullAccounts.length === 0}
+                      className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50 disabled:hover:bg-gray-100 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      title="Baixar todas as credenciais em formato JSON"
+                    >
+                      <Download size={13} />
+                      Exportar JSON
+                    </button>
+                    <a
+                      href={`${apiUrl}/api/accounts/export`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      title="Download direto do Servidor"
+                    >
+                      <ExternalLink size={13} />
+                      Servidor TXT
+                    </a>
+                  </div>
+                </div>
+
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                  {fullAccounts.length === 0 ? (
+                    <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400 text-xs">
+                      Nenhuma conta criada ou salva encontrada no banco de dados local.
+                    </div>
+                  ) : (
+                    fullAccounts.map((acc, index) => (
+                      <div
+                        key={acc.username + '-' + index}
+                        className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100/80 rounded-xl border border-gray-200 transition-colors gap-4"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                            {acc.username.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-semibold text-gray-800 text-xs block truncate">
+                              @{acc.username}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-mono block truncate mt-0.5">
+                              Senha: {acc.password || '******'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => handleCopyText(`${acc.username}:${acc.password || ''}`, acc.username)}
+                            type="button"
+                            className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                            title="Copiar Usuário:Senha"
+                          >
+                            {copiedUser === acc.username ? (
+                              <Check size={14} className="text-emerald-500" />
+                            ) : (
+                              <Copy size={14} />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
