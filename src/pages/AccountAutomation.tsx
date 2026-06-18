@@ -611,17 +611,20 @@ const AccountAutomation: React.FC = () => {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header and description */}
-      <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-pink-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-        <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4 scale-150">
+      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-6 text-zinc-100 shadow-xl relative overflow-hidden glow-border-purple">
+        <div className="absolute right-0 top-0 opacity-5 transform translate-x-1/4 -translate-y-1/4 scale-150 text-purple-500">
           <Cpu size={250} />
         </div>
         <div className="relative z-10 space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-xs font-semibold backdrop-blur-md">
-            <Sparkles size={14} /> Múltiplas Contas & Crescimento
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-purple-950/30 border border-purple-500/20 text-purple-300 rounded-full text-xs font-mono font-semibold backdrop-blur-md">
+            <Terminal size={12} className="text-purple-400 animate-pulse" />
+            <span>sys_op: active_session</span>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Painel de Automação de Contas</h1>
-          <p className="text-purple-100 max-w-2xl text-sm">
-            Gerencie múltiplos perfis no Instagram de forma centralizada. Conecte contas, realize ações automatizadas de engajamento (seguir, envio de mensagens e áudio) e agende posts automáticos para alimentar seus perfis em escala.
+          <h1 className="text-3xl font-extrabold tracking-tight font-mono text-zinc-100 flex items-center gap-2">
+            <span className="text-purple-500">&gt;_</span> Painel de Automação de Contas
+          </h1>
+          <p className="text-zinc-400 max-w-2xl text-xs leading-relaxed">
+            Interface para gerenciamento centralizado de múltiplos perfis no Instagram. Execute ações automatizadas de engajamento (seguir, envio de mensagens e áudio) e agendamento de posts em escala a partir de sessões simuladas e autenticadas.
           </p>
         </div>
       </div>

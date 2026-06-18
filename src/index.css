@@ -1,3 +1,170 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #09090b !important; /* zinc-950 */
+    color: #f4f4f5 !important; /* zinc-100 */
+    font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+
+  /* Theme Overrides for Tailwind Utility Classes */
+  
+  /* Backgrounds */
+  .bg-gray-55 {
+    background-color: #09090b !important; /* zinc-950 */
+    border-color: #27272a !important;
+  }
+  .bg-gray-50, .bg-slate-50 {
+    background-color: #09090b !important; /* zinc-950 */
+  }
+  .bg-white {
+    background-color: #121214 !important; /* zinc-900/slate-900 hybrid */
+    border-color: #27272a !important; /* zinc-800 */
+  }
+  .bg-gray-100, .bg-zinc-50 {
+    background-color: #1c1c1f !important; /* zinc-800 */
+  }
+  
+  /* Borders */
+  .border-gray-100, .border-gray-200, .border-gray-300, .border-zinc-200 {
+    border-color: #202023 !important; /* zinc-800 */
+  }
+  .border-purple-200, .border-purple-100 {
+    border-color: rgba(168, 85, 247, 0.25) !important;
+  }
+  .border-blue-200, .border-blue-100 {
+    border-color: rgba(59, 130, 246, 0.25) !important;
+  }
+
+  /* Hover States */
+  .hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover, .hover\:bg-gray-100\/80:hover {
+    background-color: #1c1c1f !important;
+  }
+
+  /* Text Colors */
+  .text-gray-900, .text-gray-800, .text-gray-700, .text-zinc-800 {
+    color: #f4f4f5 !important; /* zinc-100 */
+  }
+  .text-gray-600, .text-gray-55, .text-gray-500, .text-zinc-500, .text-zinc-600 {
+    color: #a1a1aa !important; /* zinc-400 */
+  }
+  .text-gray-400 {
+    color: #71717a !important; /* zinc-500 */
+  }
+  .text-purple-600 {
+    color: #d8b4fe !important; /* purple-300 */
+  }
+  .text-purple-900 {
+    color: #f3e8ff !important;
+  }
+
+  /* Active Sidebar Links */
+  .bg-purple-50 {
+    background-color: rgba(168, 85, 247, 0.12) !important;
+    color: #e9d5ff !important;
+    border-left: 3px solid #a855f7 !important;
+    border-radius: 0.5rem;
+  }
+
+  /* Standard Forms (Inputs, Selects, Textareas) */
+  input, select, textarea {
+    background-color: #09090b !important;
+    border-color: #27272a !important;
+    color: #f4f4f5 !important;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: #a855f7 !important;
+    box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.25) !important;
+  }
+  input::placeholder {
+    color: #52525b !important; /* zinc-600 */
+  }
+
+  /* Status Badges & Alerts (Positive, Negative, Warning) */
+  .bg-rose-50, .bg-red-50 {
+    background-color: rgba(159, 18, 57, 0.15) !important; /* rose-950 */
+    border-color: rgba(225, 29, 72, 0.3) !important; /* rose-600 */
+    color: #fda4af !important; /* rose-300 */
+  }
+  .text-rose-800, .text-rose-700, .text-red-700, .text-red-800 {
+    color: #fda4af !important;
+  }
+  
+  .bg-emerald-50, .bg-green-50 {
+    background-color: rgba(6, 78, 59, 0.15) !important; /* emerald-950 */
+    border-color: rgba(5, 150, 105, 0.3) !important; /* emerald-600 */
+    color: #6ee7b7 !important; /* emerald-300 */
+  }
+  .text-emerald-800, .text-emerald-700, .text-green-700 {
+    color: #6ee7b7 !important;
+  }
+
+  .bg-yellow-100, .bg-yellow-50, .bg-amber-50 {
+    background-color: rgba(120, 53, 4, 0.15) !important; /* amber-950 */
+    border-color: rgba(217, 119, 6, 0.3) !important; /* amber-600 */
+    color: #fde047 !important; /* yellow-300 */
+  }
+  .text-yellow-800, .text-amber-800 {
+    color: #fde047 !important;
+  }
+
+  /* Requirement Cards (Purple & Blue Alert Boxes) */
+  .bg-purple-50 {
+    background-color: rgba(88, 28, 135, 0.15) !important; /* purple-950 */
+    border-color: rgba(147, 51, 234, 0.3) !important;
+    color: #e9d5ff !important;
+  }
+  .text-purple-700 {
+    color: #d8b4fe !important;
+  }
+  
+  .bg-blue-50 {
+    background-color: rgba(30, 58, 138, 0.15) !important; /* blue-950 */
+    border-color: rgba(59, 130, 246, 0.3) !important;
+    color: #dbeafe !important;
+  }
+  .text-blue-700 {
+    color: #bfdbfe !important;
+  }
+
+  /* Custom Monospace Scrollbars for Logs/Tables */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #27272a;
+    border-radius: 3px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #3f3f46;
+  }
+
+  /* Glowing developer accents */
+  .glow-border-purple {
+    border: 1px solid rgba(168, 85, 247, 0.4);
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.15);
+  }
+  .glow-border-emerald {
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+  }
+
+  /* Recharts custom styling for dark mode */
+  .recharts-cartesian-grid-horizontal line, 
+  .recharts-cartesian-grid-vertical line {
+    stroke: #202023 !important;
+  }
+  .recharts-text {
+    fill: #a1a1aa !important;
+  }
+}
