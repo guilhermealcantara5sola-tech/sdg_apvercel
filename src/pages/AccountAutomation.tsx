@@ -115,6 +115,7 @@ const AccountAutomation: React.FC = () => {
   const [isPosting, setIsPosting] = useState(false);
 
   const logEndRef = useRef<HTMLDivElement>(null);
+  const logsContainerRef = useRef<HTMLDivElement>(null);
   
   // Fetch Saved Accounts & System Leads
   const loadAccounts = async () => {
@@ -122,10 +123,12 @@ const AccountAutomation: React.FC = () => {
       setAccountsError(null);
       const data = await fetchSavedAccounts();
       if (Array.isArray(data)) {
-        const accountsList = data.map((acc: any) => ({
-          username: acc.username,
-          status: 'pending' as const
-        }));
+        const accountsList = data
+          .filter((acc: any) => acc && typeof acc.username === 'string' && acc.username.trim() !== '')
+          .map((acc: any) => ({
+            username: acc.username,
+            status: 'pending' as const
+          }));
         setSavedAccounts(accountsList);
       } else {
         setSavedAccounts([]);
@@ -168,7 +171,8 @@ const AccountAutomation: React.FC = () => {
       setFullAccountsError(null);
       const data = await fetchFullAccounts();
       if (Array.isArray(data)) {
-        setFullAccounts(data);
+        const validFullAccounts = data.filter((acc: any) => acc && typeof acc.username === 'string' && acc.username.trim() !== '');
+        setFullAccounts(validFullAccounts);
       } else {
         setFullAccounts([]);
         setFullAccountsError(data?.error || data?.message || 'Resposta inesperada do servidor de criação.');
@@ -277,12 +281,12 @@ const AccountAutomation: React.FC = () => {
     };
   }, [creatorStatus]);
 
-  // Scroll to logs end
+  // Scroll to logs end inside the terminal container only, without shifting the whole page
   useEffect(() => {
-    if (logEndRef.current) {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
     }
-  }, [campaignLogs, creatorLogs]);
+  }, [currentLogs]);
 
   // Account creation/testing function
   const handleVerifyAndAddAccount = async (e: React.FormEvent) => {
@@ -773,7 +777,7 @@ const AccountAutomation: React.FC = () => {
                       <div key={acc.username} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-sm">
-                            {acc.username.charAt(0).toUpperCase()}
+                            {(acc.username || '').charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <span className="font-semibold text-gray-800 text-sm">@{acc.username}</span>
@@ -1420,7 +1424,7 @@ const AccountAutomation: React.FC = () => {
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                            {acc.username.charAt(0).toUpperCase()}
+                            {(acc.username || '').charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
                             <span className="font-semibold text-gray-800 text-xs block truncate">
@@ -1562,7 +1566,7 @@ const AccountAutomation: React.FC = () => {
               </div>
             </div>
             
-            <div className="flex-1 p-4 overflow-y-auto font-mono text-[11px] text-gray-300 space-y-2 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+            <div ref={logsContainerRef} className="flex-1 p-4 overflow-y-auto font-mono text-[11px] text-gray-300 space-y-2 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
               {currentLogs.length === 0 ? (
                 <div className="text-gray-600 text-center py-16 italic">
                   {consoleMode === 'unified'
