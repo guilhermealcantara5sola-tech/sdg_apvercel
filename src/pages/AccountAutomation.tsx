@@ -15,8 +15,7 @@ import {
   stopCreator,
   fetchManualFlow,
   submitManualPhone,
-  submitManualCode,
-  resetManualFlow
+  submitManualCode
 } from '../utils/api';
 import { 
   UserPlus, 
