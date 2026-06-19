@@ -14,31 +14,36 @@ const Inbox: React.FC = () => {
     async function loadChats() {
       try {
         const chatsList = await fetchChats();
-        setChats(chatsList);
-        
-        // Verifica se há um chat especificado na URL
-        const params = new URLSearchParams(window.location.search);
-        const urlChatId = params.get('chat');
-        
-        if (urlChatId) {
-          const matchedChat = chatsList.find((c: any) => 
-            c.id === urlChatId || 
-            c.sender === urlChatId || 
-            (c.id && typeof c.id === 'string' && c.id.split('_')[0] === urlChatId) ||
-            (c.sender && typeof c.sender === 'string' && c.sender.toLowerCase().includes(urlChatId.toLowerCase()))
-          );
-          if (matchedChat) {
-            setSelectedChat(matchedChat);
-            return;
+        if (Array.isArray(chatsList)) {
+          setChats(chatsList);
+          
+          // Verifica se há um chat especificado na URL
+          const params = new URLSearchParams(window.location.search);
+          const urlChatId = params.get('chat');
+          
+          if (urlChatId) {
+            const matchedChat = chatsList.find((c: any) => 
+              c && (c.id === urlChatId || 
+              c.sender === urlChatId || 
+              (c.id && typeof c.id === 'string' && c.id.split('_')[0] === urlChatId) ||
+              (c.sender && typeof c.sender === 'string' && c.sender.toLowerCase().includes(urlChatId.toLowerCase())))
+            );
+            if (matchedChat) {
+              setSelectedChat(matchedChat);
+              return;
+            }
           }
-        }
 
-        // Só seleciona o primeiro chat no desktop
-        if (chatsList.length > 0 && window.innerWidth > 768) {
-          setSelectedChat(chatsList[0]);
+          // Só seleciona o primeiro chat no desktop
+          if (chatsList.length > 0 && window.innerWidth > 768) {
+            setSelectedChat(chatsList[0]);
+          }
+        } else {
+          setChats([]);
         }
       } catch (err) {
         console.error('Error loading chats:', err);
+        setChats([]);
       } finally {
         setLoadingChats(false);
       }
@@ -63,10 +68,12 @@ const Inbox: React.FC = () => {
     loadMessages();
   }, [selectedChat]);
 
-  const filteredChats = chats.filter(chat => 
-    (chat.sender && typeof chat.sender === 'string' && chat.sender.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (chat.lastMessage && typeof chat.lastMessage === 'string' && chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredChats = (Array.isArray(chats) ? chats : []).filter(chat => {
+    if (!chat) return false;
+    const matchesSender = chat.sender && typeof chat.sender === 'string' && chat.sender.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesMsg = chat.lastMessage && typeof chat.lastMessage === 'string' && chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSender || matchesMsg;
+  });
 
   const isCandidate = (senderName: any) => {
     if (!senderName || typeof senderName !== 'string') return false;
@@ -116,7 +123,7 @@ const Inbox: React.FC = () => {
               <div className="flex-1 text-left min-w-0">
                 <div className="flex justify-between items-start">
                   <span className="font-bold text-gray-800 text-sm truncate">@{msg.sender}</span>
-                  <span className="text-[10px] text-gray-400 truncate max-w-[60px]">{msg.time.split(' ')[0]}</span>
+                  <span className="text-[10px] text-gray-400 truncate max-w-[60px]">{(msg.time || '').split(' ')[0]}</span>
                 </div>
                 <p className={`text-xs truncate mt-0.5 ${msg.unread ? 'font-bold text-gray-900' : 'text-gray-500'}`}>
                   {msg.lastMessage}
@@ -137,7 +144,7 @@ const Inbox: React.FC = () => {
       <div className={`flex-1 flex flex-col bg-gray-50/30 ${
         !selectedChat ? 'hidden md:flex' : 'flex'
       }`}>
-        {selectedChat && chatDetails ? (
+        {selectedChat && chatDetails && Array.isArray(chatDetails.messages) ? (
           <>
             {/* Chat Header */}
             <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6">

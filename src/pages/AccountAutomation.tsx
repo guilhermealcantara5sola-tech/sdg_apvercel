@@ -12,7 +12,11 @@ import {
   fetchSettings,
   fetchFullAccounts,
   fetchCreatorStatus,
-  stopCreator
+  stopCreator,
+  fetchManualFlow,
+  submitManualPhone,
+  submitManualCode,
+  resetManualFlow
 } from '../utils/api';
 import { 
   UserPlus, 
@@ -33,7 +37,8 @@ import {
   Download,
   Copy,
   Check,
-  ExternalLink
+  ExternalLink,
+  Smartphone
 } from 'lucide-react';
 
 
@@ -59,6 +64,10 @@ const AccountAutomation: React.FC = () => {
 
   // 4. Tab Criar Contas
   const [smsKey, setSmsKey] = useState(() => localStorage.getItem('sms_activate_key') || '');
+  const [smsProvider, setSmsProvider] = useState<'5sim' | 'manual'>(() => {
+    const saved = localStorage.getItem('sms_activate_key') || '';
+    return saved.toLowerCase() === 'manual' ? 'manual' : '5sim';
+  });
   const [country, setCountry] = useState('brazil'); 
   const [usernamePrefix, setUsernamePrefix] = useState('sdg');
   const [createPassword, setCreatePassword] = useState('');
@@ -73,6 +82,13 @@ const AccountAutomation: React.FC = () => {
   const [creatorStatus, setCreatorStatus] = useState('idle');
   const [creatorLogs, setCreatorLogs] = useState<string[]>([]);
   const [creatorProgress, setCreatorProgress] = useState({ current: 0, total: 0, current_user: '' });
+
+  // Fluxo Manual de SMS
+  const [manualFlowState, setManualFlowState] = useState<any>(null);
+  const [inputPhoneNumber, setInputPhoneNumber] = useState('');
+  const [inputSmsCode, setInputSmsCode] = useState('');
+  const [submittingFlow, setSubmittingFlow] = useState(false);
+  const [predefinedPhone, setPredefinedPhone] = useState('');
 
   // Connection settings
   const [apiUrl] = useState(() => localStorage.getItem('api_base_url') || 'http://localhost:5000');
@@ -116,12 +132,14 @@ const AccountAutomation: React.FC = () => {
 
   // Combina e ordena os logs pelo timestamp [HH:MM:SS]
   const getUnifiedLogs = () => {
-    const formattedBotLogs = campaignLogs.map(log => {
-      const str = typeof log === 'string' ? log : JSON.stringify(log);
+    const safeCampaignLogs = Array.isArray(campaignLogs) ? campaignLogs : [];
+    const safeCreatorLogs = Array.isArray(creatorLogs) ? creatorLogs : [];
+    const formattedBotLogs = safeCampaignLogs.map(log => {
+      const str = typeof log === 'string' ? log : (log ? JSON.stringify(log) : '');
       return str.includes('[ROBÔ]') || str.includes('[SISTEMA]') ? str : `[ROBÔ] ${str}`;
     });
-    const formattedCreatorLogs = creatorLogs.map(log => {
-      const str = typeof log === 'string' ? log : JSON.stringify(log);
+    const formattedCreatorLogs = safeCreatorLogs.map(log => {
+      const str = typeof log === 'string' ? log : (log ? JSON.stringify(log) : '');
       return str.includes('[CRIADOR]') || str.includes('[SISTEMA]') ? str : `[CRIADOR] ${str}`;
     });
     const allLogs = [...formattedBotLogs, ...formattedCreatorLogs];
@@ -140,8 +158,8 @@ const AccountAutomation: React.FC = () => {
       consoleMode === 'unified' 
         ? getUnifiedLogs() 
         : consoleMode === 'creator' 
-        ? creatorLogs 
-        : campaignLogs;
+        ? (Array.isArray(creatorLogs) ? creatorLogs : []) 
+        : (Array.isArray(campaignLogs) ? campaignLogs : []);
     if (logs.length === 0) return;
     const textToCopy = logs.join('\n');
     navigator.clipboard.writeText(textToCopy);
@@ -156,8 +174,8 @@ const AccountAutomation: React.FC = () => {
     consoleMode === 'unified' 
       ? getUnifiedLogs() 
       : consoleMode === 'creator' 
-      ? creatorLogs 
-      : campaignLogs;
+      ? (Array.isArray(creatorLogs) ? creatorLogs : []) 
+      : (Array.isArray(campaignLogs) ? campaignLogs : []);
 
   const logEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
@@ -189,11 +207,14 @@ const AccountAutomation: React.FC = () => {
   const loadSystemLeads = async () => {
     try {
       const data = await fetchFollowers();
-      if (data && data.followers) {
+      if (data && Array.isArray(data.followers)) {
         setSystemLeads(data.followers);
+      } else {
+        setSystemLeads([]);
       }
     } catch (err) {
       console.error('Error fetching system leads:', err);
+      setSystemLeads([]);
     }
   };
 
@@ -323,6 +344,28 @@ const AccountAutomation: React.FC = () => {
 
     return () => {
       if (timer) clearTimeout(timer);
+    };
+  }, [creatorStatus]);
+
+  // Polling para o fluxo manual de SMS
+  useEffect(() => {
+    let interval: any;
+    if (creatorStatus === 'running') {
+      const checkFlow = async () => {
+        try {
+          const flow = await fetchManualFlow();
+          setManualFlowState(flow);
+        } catch (e) {
+          console.warn('Erro ao verificar fluxo manual:', e);
+        }
+      };
+      checkFlow();
+      interval = setInterval(checkFlow, 2000);
+    } else {
+      setManualFlowState(null);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
     };
   }, [creatorStatus]);
 
@@ -555,6 +598,7 @@ const AccountAutomation: React.FC = () => {
         username_prefix: usernamePrefix,
         password: createPassword,
         proxy: createProxy,
+        phone_number: predefinedPhone,
         count: createCount
       });
     } catch (err: any) {
@@ -1237,21 +1281,63 @@ const AccountAutomation: React.FC = () => {
               <form onSubmit={handleCreateAccounts} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   
-                  {/* SMS API KEY */}
+                  {/* SMS PROVIDER TYPE */}
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-600 block">Chave API do 5sim.net</label>
-                    <input
-                      type="text"
-                      value={smsKey}
-                      onChange={(e) => setSmsKey(e.target.value)}
-                      placeholder="Insira sua API Key do 5sim.net"
+                    <label className="text-xs font-semibold text-gray-600 block">Provedor de SMS</label>
+                    <select
+                      value={smsProvider}
+                      onChange={(e) => {
+                        const val = e.target.value as '5sim' | 'manual';
+                        setSmsProvider(val);
+                        if (val === 'manual') {
+                          setSmsKey('manual');
+                        } else {
+                          const saved = localStorage.getItem('sms_activate_key') || '';
+                          setSmsKey(saved.toLowerCase() === 'manual' ? '' : saved);
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
-                      required
-                    />
-                    <p className="text-[9px] text-gray-400">
-                      Necessário para comprar os chips virtuais e receber o SMS de cadastro.
-                    </p>
+                    >
+                      <option value="5sim">Automático (Comprar chip virtual 5sim.net)</option>
+                      <option value="manual">Manual (Usar meu próprio celular/chip físico)</option>
+                    </select>
                   </div>
+
+                  {/* SMS API KEY (ONLY IF AUTOMATIC 5SIM) */}
+                  {smsProvider === '5sim' && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600 block">Chave API do 5sim.net</label>
+                      <input
+                        type="text"
+                        value={smsKey === 'manual' ? '' : smsKey}
+                        onChange={(e) => setSmsKey(e.target.value)}
+                        placeholder="Insira sua API Key do 5sim.net"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                        required
+                      />
+                      <p className="text-[9px] text-gray-400">
+                        Chave de API necessária para comprar os chips virtuais e receber o SMS.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* PHONE NUMBER (ONLY IF MANUAL PROV) */}
+                  {smsProvider === 'manual' && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600 block">Número do Telefone / Chip (com DDD e DDI)</label>
+                      <input
+                        type="text"
+                        value={predefinedPhone}
+                        onChange={(e) => setPredefinedPhone(e.target.value)}
+                        placeholder="Ex: +5511999999999"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                        required
+                      />
+                      <p className="text-[9px] text-gray-400">
+                        O robô usará este número para registrar a conta no Instagram.
+                      </p>
+                    </div>
+                  )}
 
                   {/* COUNTRY */}
                   <div className="space-y-1">
@@ -1521,6 +1607,87 @@ const AccountAutomation: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Interface para Fluxo Manual de SMS */}
+          {manualFlowState && (manualFlowState.status === 'pending_phone' || manualFlowState.status === 'pending_code') && (
+            <div className="bg-purple-950/20 border border-purple-500/30 rounded-2xl p-4 shadow-xl space-y-4 animate-pulse mb-4 text-zinc-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl">
+                  <Smartphone size={20} />
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-200 text-sm">Ação Manual Requerida: Verificação de SMS</h4>
+                  <p className="text-xs text-gray-400">O robô está aguardando os dados do seu chip físico para continuar.</p>
+                </div>
+              </div>
+
+              {manualFlowState.status === 'pending_phone' && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-300 block">Número do Telefone / Chip (com DDD e DDI +55)</label>
+                    <input
+                      type="text"
+                      value={inputPhoneNumber}
+                      onChange={(e) => setInputPhoneNumber(e.target.value)}
+                      placeholder="Ex: +5511999999999"
+                      className="w-full px-3 py-2 border border-purple-800 rounded-lg text-sm bg-zinc-900 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!inputPhoneNumber.trim()) return;
+                      setSubmittingFlow(true);
+                      try {
+                        await submitManualPhone(inputPhoneNumber.trim());
+                        setInputPhoneNumber('');
+                      } catch (err) {
+                        alert('Falha ao enviar número do telefone.');
+                      } finally {
+                        setSubmittingFlow(false);
+                      }
+                    }}
+                    disabled={submittingFlow}
+                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                  >
+                    {submittingFlow ? 'Enviando...' : 'Enviar Número de Telefone'}
+                  </button>
+                </div>
+              )}
+
+              {manualFlowState.status === 'pending_code' && (
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-gray-300 block">Código de Confirmação SMS (Recebido no celular)</label>
+                    <input
+                      type="text"
+                      value={inputSmsCode}
+                      onChange={(e) => setInputSmsCode(e.target.value)}
+                      placeholder="Ex: 123456"
+                      className="w-full px-3 py-2 border border-purple-800 rounded-lg text-sm bg-zinc-900 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (!inputSmsCode.trim()) return;
+                      setSubmittingFlow(true);
+                      try {
+                        await submitManualCode(inputSmsCode.trim());
+                        setInputSmsCode('');
+                      } catch (err) {
+                        alert('Falha ao enviar código SMS.');
+                      } finally {
+                        setSubmittingFlow(false);
+                      }
+                    }}
+                    disabled={submittingFlow}
+                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                  >
+                    {submittingFlow ? 'Enviando...' : 'Enviar Código SMS'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Logs Terminal Console */}
           <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 flex flex-col lg:flex-1 lg:min-h-0 h-[300px]">

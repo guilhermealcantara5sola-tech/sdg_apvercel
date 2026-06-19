@@ -88,17 +88,18 @@ const Leads: React.FC = () => {
   });
 
   // Métricas
-  const totalLeads = followers.length;
-  const followedBackCount = followers.filter(f => f.followed_back).length;
+  const safeFollowers = Array.isArray(followers) ? followers.filter(Boolean) : [];
+  const totalLeads = safeFollowers.length;
+  const followedBackCount = safeFollowers.filter(f => f && f.followed_back).length;
   const followBackRate = totalLeads > 0 ? Math.round((followedBackCount / totalLeads) * 100) : 0;
   
-  const femaleCount = followers.filter(f => f.gender === 'Mulheres').length;
+  const femaleCount = safeFollowers.filter(f => f && f.gender === 'Mulheres').length;
   const femaleRate = totalLeads > 0 ? Math.round((femaleCount / totalLeads) * 100) : 0;
 
   // Cidade mais frequente
   const cityCounts: Record<string, number> = {};
-  followers.forEach(f => {
-    if (f.city && f.city !== 'Outras') {
+  safeFollowers.forEach(f => {
+    if (f && f.city && f.city !== 'Outras') {
       cityCounts[f.city] = (cityCounts[f.city] || 0) + 1;
     }
   });

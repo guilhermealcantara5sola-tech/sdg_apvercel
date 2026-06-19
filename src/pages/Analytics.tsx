@@ -6,6 +6,7 @@ import { Cpu, Users, MessageSquare, Heart, Sparkles, AlertTriangle, ShieldCheck,
 const Analytics: React.FC = () => {
   const [totalAccounts, setTotalAccounts] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   // Planejamento de Estratégia States
   const [simulatedAccounts, setSimulatedAccounts] = useState(0);
@@ -16,6 +17,7 @@ const Analytics: React.FC = () => {
   const [conversionRate, setConversionRate] = useState(3); // em %
 
   useEffect(() => {
+    setMounted(true);
     async function loadAccountsData() {
       try {
         const accounts = await fetchSavedAccounts();
@@ -31,6 +33,7 @@ const Analytics: React.FC = () => {
       }
     }
     loadAccountsData();
+    return () => setMounted(false);
   }, []);
 
   // Cálculos de Projeção
@@ -407,29 +410,31 @@ const Analytics: React.FC = () => {
         </div>
 
         <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={getChartData()}>
-              <defs>
-                <linearGradient id="colorReach" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#9333ea" stopOpacity={0.25}/>
-                  <stop offset="95%" stopColor="#9333ea" stopOpacity={0}/>
-                </linearGradient>
-                <linearGradient id="colorDMs" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#a855f7" stopOpacity={0.15}/>
-                  <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#202023" />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#71717a'}} />
-              <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#71717a'}} />
-              <Tooltip 
-                contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px', fontSize: '11px', color: '#f4f4f5' }}
-                formatter={(value: any) => [value.toLocaleString('pt-BR'), '']}
-              />
-              <Area type="monotone" dataKey="Alcance Acumulado" stroke="#9333ea" strokeWidth={2.5} fillOpacity={1} fill="url(#colorReach)" />
-              <Area type="monotone" dataKey="Directs Enviados" stroke="#a855f7" strokeWidth={1.5} strokeDasharray="4 4" fillOpacity={1} fill="url(#colorDMs)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          {mounted && (
+            <ResponsiveContainer id="projection-chart-container" key="projection-chart-container" width="100%" height="100%" minWidth={0} minHeight={0}>
+              <AreaChart data={getChartData()}>
+                <defs>
+                  <linearGradient id="colorReach" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#9333ea" stopOpacity={0.25}/>
+                    <stop offset="95%" stopColor="#9333ea" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorDMs" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#a855f7" stopOpacity={0.15}/>
+                    <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#202023" />
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#71717a'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#71717a'}} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '8px', fontSize: '11px', color: '#f4f4f5' }}
+                  formatter={(value: any) => [value.toLocaleString('pt-BR'), '']}
+                />
+                <Area type="monotone" dataKey="Alcance Acumulado" stroke="#9333ea" strokeWidth={2.5} fillOpacity={1} fill="url(#colorReach)" />
+                <Area type="monotone" dataKey="Directs Enviados" stroke="#a855f7" strokeWidth={1.5} strokeDasharray="4 4" fillOpacity={1} fill="url(#colorDMs)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 

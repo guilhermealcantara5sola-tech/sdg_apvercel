@@ -724,7 +724,7 @@ const Broadcast: React.FC = () => {
   // Variaveis de status seguras contra undefined
   const botStatus = botState?.status || 'offline';
   const botProgress = botState?.progress || { current: 0, total: 0, current_user: '' };
-  const botLogs = botState?.logs || [];
+  const botLogs = Array.isArray(botState?.logs) ? botState.logs : [];
   const isRunning = botStatus === 'running' || botStatus === 'stopping';
   const progressPercent = botProgress.total > 0 
     ? Math.round((botProgress.current / botProgress.total) * 100) 

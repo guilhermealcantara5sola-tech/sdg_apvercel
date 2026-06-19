@@ -657,3 +657,39 @@ export async function fetchFullAccounts() {
   return await res.json();
 }
 
+export async function fetchManualFlow() {
+  const res = await fetch(`${getCreatorApiBase()}/api/manual-flow`);
+  if (!res.ok) throw new Error('Falha ao buscar fluxo manual');
+  return await res.json();
+}
+
+export async function submitManualPhone(phoneNumber: string) {
+  const res = await fetch(`${getCreatorApiBase()}/api/manual-flow`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ action: 'submit_phone', phone_number: phoneNumber })
+  });
+  if (!res.ok) throw new Error('Falha ao enviar telefone');
+  return await res.json();
+}
+
+export async function submitManualCode(code: string) {
+  const res = await fetch(`${getCreatorApiBase()}/api/manual-flow`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ action: 'submit_code', code })
+  });
+  if (!res.ok) throw new Error('Falha ao enviar código SMS');
+  return await res.json();
+}
+
+export async function resetManualFlow() {
+  const res = await fetch(`${getCreatorApiBase()}/api/manual-flow`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ action: 'reset' })
+  });
+  if (!res.ok) throw new Error('Falha ao resetar fluxo manual');
+  return await res.json();
+}
+

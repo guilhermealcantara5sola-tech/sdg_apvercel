@@ -65,6 +65,45 @@ def save_settings_route():
     save_settings(settings)
     return jsonify({"status": "success", "message": "Configurações salvas!"})
 
+# --- Fluxo de Ativação Manual por SMS ---
+MANUAL_FLOW_FILE = os.path.join(BASE_DIR, 'creator_manual_flow.json')
+
+def load_manual_flow():
+    if os.path.exists(MANUAL_FLOW_FILE):
+        try:
+            with open(MANUAL_FLOW_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"status": "idle"}
+
+def save_manual_flow(data):
+    try:
+        with open(MANUAL_FLOW_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception:
+        pass
+
+@app.route('/api/manual-flow', methods=['GET'])
+def get_manual_flow():
+    return jsonify(load_manual_flow())
+
+@app.route('/api/manual-flow', methods=['POST'])
+def post_manual_flow():
+    data = request.json or {}
+    flow = load_manual_flow()
+    action = data.get('action')
+    if action == 'submit_phone':
+        flow['status'] = 'phone_submitted'
+        flow['phone_number'] = data.get('phone_number')
+    elif action == 'submit_code':
+        flow['status'] = 'code_submitted'
+        flow['code'] = data.get('code')
+    elif action == 'reset':
+        flow = {"status": "idle"}
+    save_manual_flow(flow)
+    return jsonify({"status": "success", "flow": flow})
+
 @app.route('/api/accounts/full', methods=['GET'])
 def get_accounts_full():
     accounts_dict = load_saved_accounts()
@@ -106,6 +145,7 @@ def accounts_create_route():
     username_prefix = data.get('username_prefix', 'sdg').strip()
     password = data.get('password', '').strip()
     proxy = data.get('proxy', '').strip()
+    phone_number = data.get('phone_number', '').strip()
     count = int(data.get('count', 1))
 
     # Salva configurações locais
@@ -166,6 +206,8 @@ def accounts_create_route():
             cmd.extend(["--password", password])
         if proxy:
             cmd.extend(["--proxy", proxy])
+        if phone_number:
+            cmd.extend(["--phone-number", phone_number])
         if count:
             cmd.extend(["--count", str(count)])
 

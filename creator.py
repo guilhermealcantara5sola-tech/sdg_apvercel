@@ -105,9 +105,87 @@ class SmsActivateAPI:
         url = f"{self.url}?api_key={self.api_key}&action=setStatus&status=8&id={activation_id}"
         requests.get(url, timeout=10)
 
-def get_sms_api(api_key):
+class ManualSmsAPI:
+    def __init__(self, predefined_phone=None):
+        if getattr(sys, 'frozen', False):
+            self.base_dir = os.path.dirname(os.path.abspath(sys.executable))
+        else:
+            self.base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.flow_file = os.path.join(self.base_dir, 'creator_manual_flow.json')
+        self.predefined_phone = predefined_phone.strip() if predefined_phone else None
+        self._write_flow({"status": "idle"})
+
+    def _read_flow(self):
+        if os.path.exists(self.flow_file):
+            try:
+                with open(self.flow_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                pass
+        return {"status": "idle"}
+
+    def _write_flow(self, data):
+        try:
+            with open(self.flow_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception:
+            pass
+
+    def get_balance(self):
+        return 0.0
+
+    def get_number(self, country):
+        if self.predefined_phone:
+            phone = self.predefined_phone
+            if not phone.startswith("+"):
+                phone = "+" + phone
+            log(f"[MANUAL_SMS] Usando número de telefone pré-definido: {phone}", "SMS")
+            self.predefined_phone = None  # Consumido
+            return "manual_activation", phone
+
+        self._write_flow({"status": "pending_phone"})
+        log("[MANUAL_SMS] IMPORTANTE: Digite o número do chip no painel para continuar.", "SMS")
+        while True:
+            time.sleep(2)
+            flow = self._read_flow()
+            if flow.get("status") == "phone_submitted":
+                phone = flow.get("phone_number")
+                if phone:
+                    if not phone.startswith("+"):
+                        phone = "+" + phone
+                    log(f"[MANUAL_SMS] Número do telefone recebido: {phone}", "SMS")
+                    return "manual_activation", phone
+            elif flow.get("status") == "idle":
+                self._write_flow({"status": "pending_phone"})
+
+    def get_sms_code(self, activation_id):
+        self._write_flow({"status": "pending_code"})
+        log("[MANUAL_SMS] Código SMS solicitado. Insira o código recebido no chip no painel.", "SMS")
+        for _ in range(48): # 4 minutos max
+            time.sleep(5)
+            flow = self._read_flow()
+            if flow.get("status") == "code_submitted":
+                code = flow.get("code")
+                if code:
+                    log(f"[MANUAL_SMS] Código SMS recebido: {code}", "SMS")
+                    return code
+            elif flow.get("status") == "idle":
+                self._write_flow({"status": "pending_code"})
+        return None
+
+    def finish_order(self, activation_id):
+        self._write_flow({"status": "idle"})
+
+    def cancel_order(self, activation_id):
+        self._write_flow({"status": "idle"})
+
+def get_sms_api(api_key, predefined_phone=None):
     clean_key = api_key.strip()
-    # Chaves do SMS-Activate são tipicamente hexadecimais de 32 caracteres (sem pontos)
+    if clean_key.lower() == "manual":
+        log("Provedor detectado: Fluxo SMS Manual (Chip Próprio)", "SMS")
+        return ManualSmsAPI(predefined_phone)
+
+    # Chaves do SMS-Activate são tipidades hexadecimais de 32 caracteres (sem pontos)
     is_sms_activate = False
     if len(clean_key) == 32 and all(c in "0123456789abcdefABCDEF" for c in clean_key):
         is_sms_activate = True
@@ -364,6 +442,7 @@ def main():
     parser.add_argument("--password", help="Senha padrão para as contas criadas (se omitido, será aleatória)")
     parser.add_argument("--proxy", help="Proxy no formato IP:PORTA ou IP:PORTA:USER:PASS")
     parser.add_argument("--count", type=int, default=1, help="Quantidade de contas para criar")
+    parser.add_argument("--phone-number", help="Número de telefone pré-definido para ativação manual")
     
     args = parser.parse_args()
 
@@ -373,11 +452,11 @@ def main():
 
     sms_api = None
     if args.sms_key:
-        sms_api = get_sms_api(args.sms_key)
+        sms_api = get_sms_api(args.sms_key, getattr(args, "phone_number", None))
         balance = sms_api.get_balance()
-        provider_name = "SMS-Activate.org" if isinstance(sms_api, SmsActivateAPI) else "5sim.net"
+        provider_name = "SMS-Activate.org" if isinstance(sms_api, SmsActivateAPI) else ("Manual (Chip)" if isinstance(sms_api, ManualSmsAPI) else "5sim.net")
         log(f"Conectado ao {provider_name}. Saldo disponível: R$ {balance:.2f}", "SMS")
-        if balance <= 0.0:
+        if balance <= 0.0 and provider_name != "Manual (Chip)":
             log(f"AVISO: Seu saldo no {provider_name} está zerado. A compra de números pode falhar.", "AVISO")
     else:
         log("Nenhuma chave de SMS informada. Tentando criar sem verificação de chip (não recomendado).", "AVISO")
