@@ -372,16 +372,16 @@ const Leads: React.FC = () => {
                             className="w-10 h-10 rounded-full bg-purple-100 border border-purple-200"
                           />
                           <div>
-                            <span className="font-bold text-gray-800 text-sm block">@{follower.username}</span>
-                            <span className="text-[10px] text-gray-400 font-medium flex items-center gap-1">
-                              <Calendar size={10} />
+                            <span className="font-extrabold text-gray-900 text-sm block">@{follower.username}</span>
+                            <span className="text-[11px] text-gray-500 font-semibold flex items-center gap-1">
+                              <Calendar size={10} className="text-purple-500" />
                               Cadastrado em {new Date(follower.timestamp).toLocaleDateString('pt-BR')}
                             </span>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold ${
                           follower.followed_back 
                             ? 'bg-purple-50 text-purple-700 border border-purple-100' 
                             : 'bg-blue-50 text-blue-700 border border-blue-100'
@@ -389,13 +389,13 @@ const Leads: React.FC = () => {
                           {follower.followed_back ? 'Seguidor' : 'Contato Direct'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-600 font-semibold">
+                      <td className="px-6 py-4 text-center text-sm text-gray-900 font-bold">
                         {follower.gender === 'Mulheres' ? 'Feminino' : 'Masculino'}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-600 font-semibold">
+                      <td className="px-6 py-4 text-center text-sm text-gray-900 font-bold">
                         {follower.age_group}
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-600 font-semibold">
+                      <td className="px-6 py-4 text-center text-sm text-gray-900 font-bold">
                         {follower.city}
                       </td>
                       <td className="px-6 py-4">

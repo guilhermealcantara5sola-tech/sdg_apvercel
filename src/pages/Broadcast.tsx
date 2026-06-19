@@ -1712,31 +1712,51 @@ const Broadcast: React.FC = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50 p-2">
-                  {filteredFollowers.map((follower, idx) => (
-                    <label key={follower.username + '-' + idx} className="flex items-center gap-3 py-2 px-1 hover:bg-purple-50/20 rounded-lg cursor-pointer transition-colors text-xs">
-                      <input
-                        type="checkbox"
-                        disabled={isRunning}
-                        checked={selectedLeads.includes(follower.username)}
-                        onChange={() => toggleLeadSelection(follower.username)}
-                        className="rounded text-purple-600 focus:ring-purple-500"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <span className="font-semibold text-gray-700 block truncate">@{follower.username}</span>
-                        {follower.full_name && (
-                          <span className="text-[10px] text-gray-400 block truncate">{follower.full_name}</span>
-                        )}
-                      </div>
-                      <div className="text-right shrink-0">
-                        {follower.city && follower.city !== 'Outras' && (
-                          <span className="text-[8px] bg-purple-50 text-purple-600 px-1 py-0.5 rounded block">{follower.city}</span>
-                        )}
-                        {follower.gender && (
-                          <span className="text-[8px] text-gray-400 block mt-0.5">{follower.gender}</span>
-                        )}
-                      </div>
-                    </label>
-                  ))}
+                   {filteredFollowers.map((follower, idx) => {
+                    const isSelected = selectedLeads.includes(follower.username);
+                    return (
+                      <label 
+                        key={follower.username + '-' + idx} 
+                        className={`flex items-center gap-3 py-3 px-3 rounded-xl cursor-pointer transition-all text-sm border-b border-gray-100/50 last:border-0 ${
+                          isSelected 
+                            ? 'bg-purple-50/70 hover:bg-purple-100/60 text-purple-950 border border-purple-100/40 shadow-sm' 
+                            : 'hover:bg-gray-50/80 text-gray-800'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          disabled={isRunning}
+                          checked={isSelected}
+                          onChange={() => toggleLeadSelection(follower.username)}
+                          className="rounded text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className={`block truncate ${isSelected ? 'font-extrabold text-purple-950 text-sm' : 'font-bold text-gray-900 text-sm'}`}>
+                            @{follower.username}
+                          </span>
+                          {follower.full_name && (
+                            <span className={`block truncate text-xs mt-0.5 ${isSelected ? 'text-purple-600 font-semibold' : 'text-gray-500 font-medium'}`}>
+                              {follower.full_name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                          {follower.city && follower.city !== 'Outras' && (
+                            <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                              isSelected ? 'bg-purple-200 text-purple-800' : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {follower.city}
+                            </span>
+                          )}
+                          {follower.gender && (
+                            <span className={`text-[9px] font-semibold ${isSelected ? 'text-purple-500' : 'text-gray-400'}`}>
+                              {follower.gender === 'Mulheres' ? 'Feminino' : 'Masculino'}
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                   {filteredFollowers.length === 0 && (
                     <div className="text-center py-12 text-gray-400 text-xs italic">
                       Nenhum seguidor localizado com estes filtros.
