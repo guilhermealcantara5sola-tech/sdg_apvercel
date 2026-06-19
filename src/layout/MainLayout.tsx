@@ -8,7 +8,7 @@ const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#09090b] text-[#f4f4f5] select-none">
+    <div className="flex flex-col h-screen bg-[#09090b] text-[#f4f4f5] select-none overflow-hidden">
       
       {/* VS Code title bar */}
       <Header onMenuClick={() => setSidebarOpen(true)} />
