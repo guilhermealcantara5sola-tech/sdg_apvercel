@@ -191,7 +191,7 @@ const Broadcast: React.FC = () => {
 
   // Exportar Campanha (.json)
   const handleExportCampaign = () => {
-    const parsedManual = manualLeads.split(',').map(l => l.trim()).filter(l => l);
+    const parsedManual = manualLeads.split(/[\n,;\s]+/).map(l => l.trim().replace('@', '')).filter(l => l);
     const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
 
     const campData: any = {
@@ -443,13 +443,12 @@ const Broadcast: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const names = text.split(/[\n,]/).map(n => n.trim().replace('@', '')).filter(n => n);
+      const names = text.split(/[\n,;]/).map(n => n.trim().replace('@', '')).filter(n => n);
       if (names.length > 0) {
         setManualLeads(prev => {
-          const current = prev.split(',').map(l => l.trim()).filter(l => l);
+          const current = prev.split(/[\n,;\s]+/).map(l => l.trim().replace('@', '')).filter(l => l);
           const merged = Array.from(new Set([...current, ...names]));
-          return merged.join(', ');
+          return merged.join('\n');
         });
         alert(`✅ ${names.length} destinatários carregados no campo manual!`);
       } else {
@@ -564,7 +563,7 @@ const Broadcast: React.FC = () => {
     }
 
     // Coleta leads manuais
-    const parsedManual = manualLeads.split(',').map(l => l.trim()).filter(l => l);
+    const parsedManual = manualLeads.split(/[\n,;\s]+/).map(l => l.trim().replace('@', '')).filter(l => l);
     // Junta com seguidores selecionados
     const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
 
@@ -656,7 +655,7 @@ const Broadcast: React.FC = () => {
     }
 
     // Coleta leads manuais
-    const parsedManual = manualLeads.split(',').map(l => l.trim()).filter(l => l);
+    const parsedManual = manualLeads.split(/[\n,;\s]+/).map(l => l.trim().replace('@', '')).filter(l => l);
     // Junta com seguidores selecionados
     const allLeads = Array.from(new Set([...selectedLeads, ...parsedManual]));
 
@@ -1750,7 +1749,7 @@ const Broadcast: React.FC = () => {
               <div className="flex justify-between items-center text-xs">
                 <span className="text-gray-500">Destinatários selecionados:</span>
                 <span className="font-bold text-purple-600">
-                  {Array.from(new Set([...selectedLeads, ...manualLeads.split(',').map(l => l.trim()).filter(l => l)])).length} usuário(s)
+                  {Array.from(new Set([...selectedLeads, ...manualLeads.split(/[\n,;\s]+/).map(l => l.trim().replace('@', '')).filter(l => l)])).length} usuário(s)
                 </span>
               </div>
 
@@ -1790,13 +1789,13 @@ const Broadcast: React.FC = () => {
                     />
                   </label>
                 </div>
-                <input
-                  type="text"
-                  placeholder="ex: neymarjr, casimiro, @anitta"
+                <textarea
+                  placeholder="Cole arrobas separados por quebra de linha, vírgula ou espaço (ex: neymarjr, @casimiro, @anitta)"
+                  rows={4}
                   disabled={isRunning}
                   value={manualLeads}
                   onChange={(e) => setManualLeads(e.target.value)}
-                  className="w-full px-4 py-2 bg-gray-50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60"
+                  className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-purple-500/20 disabled:opacity-60 resize-y min-h-[100px] text-gray-700 font-medium"
                 />
               </div>
             </div>
