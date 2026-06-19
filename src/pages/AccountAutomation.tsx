@@ -11,6 +11,7 @@ import {
   fetchFollowers,
   createAccounts,
   fetchSettings,
+  saveSettings,
   fetchFullAccounts,
   fetchCreatorStatus,
   stopCreator,
@@ -40,7 +41,8 @@ import {
   Copy,
   Check,
   ExternalLink,
-  Smartphone
+  Smartphone,
+  Save
 } from 'lucide-react';
 
 
@@ -87,10 +89,10 @@ const AccountAutomation: React.FC = () => {
 
   // Fluxo Manual de SMS
   const [manualFlowState, setManualFlowState] = useState<any>(null);
-  const [inputPhoneNumber, setInputPhoneNumber] = useState('');
+  const [inputPhoneNumber, setInputPhoneNumber] = useState(() => localStorage.getItem('predefined_phone') || '');
   const [inputSmsCode, setInputSmsCode] = useState('');
   const [submittingFlow, setSubmittingFlow] = useState(false);
-  const [predefinedPhone, setPredefinedPhone] = useState('');
+  const [predefinedPhone, setPredefinedPhone] = useState(() => localStorage.getItem('predefined_phone') || '');
 
   // Connection settings
   const [apiUrl] = useState(() => localStorage.getItem('api_base_url') || 'http://localhost:5000');
@@ -228,6 +230,11 @@ const AccountAutomation: React.FC = () => {
         if (data.country) setCountry(data.country);
         if (data.username_prefix) setUsernamePrefix(data.username_prefix);
         if (data.proxy) setCreateProxy(data.proxy);
+        if (data.phone_number) {
+          setPredefinedPhone(data.phone_number);
+          setInputPhoneNumber(data.phone_number);
+          localStorage.setItem('predefined_phone', data.phone_number);
+        }
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -588,6 +595,9 @@ const AccountAutomation: React.FC = () => {
     e.preventDefault();
     if (smsKey) {
       localStorage.setItem('sms_activate_key', smsKey);
+    }
+    if (predefinedPhone) {
+      localStorage.setItem('predefined_phone', predefinedPhone);
     }
     setIsCreating(true);
     setCreatorLogs(['[SISTEMA] Iniciando criador de contas automático...']);
@@ -1327,16 +1337,40 @@ const AccountAutomation: React.FC = () => {
                   {smsProvider === 'manual' && (
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-gray-600 block">Número do Telefone / Chip (com DDD e DDI)</label>
-                      <input
-                        type="text"
-                        value={predefinedPhone}
-                        onChange={(e) => setPredefinedPhone(e.target.value)}
-                        placeholder="Ex: +5511999999999"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
-                        required
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={predefinedPhone}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setPredefinedPhone(val);
+                            localStorage.setItem('predefined_phone', val);
+                            setInputPhoneNumber(val);
+                          }}
+                          placeholder="Ex: +5511999999999"
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-55"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            localStorage.setItem('predefined_phone', predefinedPhone);
+                            try {
+                              await saveSettings({ phone_number: predefinedPhone });
+                              alert('Número de telefone salvo com sucesso!');
+                            } catch (err) {
+                              alert('Número salvo localmente, mas falhou ao salvar no servidor.');
+                            }
+                          }}
+                          className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shrink-0"
+                          title="Salvar número de telefone para não ter que digitar novamente"
+                        >
+                          <Save size={14} />
+                          Salvar
+                        </button>
+                      </div>
                       <p className="text-[9px] text-gray-400">
-                        O robô usará este número para registrar a conta no Instagram.
+                        O robô usará este número para registrar a conta no Instagram. Salve para preenchimento automático.
                       </p>
                     </div>
                   )}
@@ -1644,7 +1678,12 @@ const AccountAutomation: React.FC = () => {
                       <input
                         type="text"
                         value={inputPhoneNumber}
-                        onChange={(e) => setInputPhoneNumber(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setInputPhoneNumber(val);
+                          localStorage.setItem('predefined_phone', val);
+                          setPredefinedPhone(val);
+                        }}
                         placeholder="Ex: +5511999999999"
                         className="w-full px-3 py-2 border border-purple-800 rounded-lg text-sm bg-zinc-900 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
                       />
@@ -1655,6 +1694,12 @@ const AccountAutomation: React.FC = () => {
                         setSubmittingFlow(true);
                         try {
                           await submitManualPhone(inputPhoneNumber.trim());
+                          localStorage.setItem('predefined_phone', inputPhoneNumber.trim());
+                          try {
+                            await saveSettings({ phone_number: inputPhoneNumber.trim() });
+                          } catch (e) {
+                            console.error('Failed to auto-save phone settings to server', e);
+                          }
                           setInputPhoneNumber('');
                         } catch (err) {
                           alert('Falha ao enviar número do telefone.');
