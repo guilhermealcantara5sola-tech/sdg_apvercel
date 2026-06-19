@@ -3,6 +3,7 @@ import sys
 import json
 import time
 import random
+import re
 import argparse
 import requests
 from playwright.sync_api import sync_playwright
@@ -315,18 +316,49 @@ def create_instagram_account(args, sms_api, account_idx):
                 password_input.fill(password)
                 username_input.fill(username)
 
-            # Preencher data de nascimento se os selects estiverem na mesma tela (nova interface)
+            # Preencher data de nascimento nos selects customizados (nova interface)
             try:
-                selects = page.query_selector_all("select")
-                if len(selects) >= 3:
-                    # Ordem padrão: Dia, Mês, Ano na interface em Português
-                    selects[0].select_option(index=random.randint(1, 28))
-                    selects[1].select_option(index=random.randint(1, 12))
+                day_dropdown = page.locator("[aria-label='Selecionar o dia']")
+                month_dropdown = page.locator("[aria-label='Selecionar o mês']")
+                year_dropdown = page.locator("[aria-label='Selecionar o ano']")
+                
+                if day_dropdown.count() > 0 and month_dropdown.count() > 0 and year_dropdown.count() > 0:
+                    log("Preenchendo data de nascimento nos dropdowns customizados...", "INFO")
+                    
+                    # 1. Selecionar Dia (1 a 28)
+                    day_val = str(random.randint(1, 28))
+                    day_dropdown.click()
+                    time.sleep(1)
+                    page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{day_val}$")).first.click()
+                    time.sleep(0.5)
+                    
+                    # 2. Selecionar Mês
+                    months = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+                    month_val = random.choice(months)
+                    month_dropdown.click()
+                    time.sleep(1)
+                    page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{month_val}$")).first.click()
+                    time.sleep(0.5)
+                    
+                    # 3. Selecionar Ano (1990 a 2005)
                     year_val = str(random.randint(1990, 2005))
-                    selects[2].select_option(label=year_val)
-                    log("Data de nascimento selecionada no formulário inicial.", "INFO")
+                    year_dropdown.click()
+                    time.sleep(1)
+                    page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{year_val}$")).first.click()
+                    time.sleep(0.5)
+                    
+                    log("Data de nascimento selecionada com sucesso nos dropdowns customizados.", "INFO")
+                else:
+                    # Fallback para selects nativos
+                    selects = page.query_selector_all("select")
+                    if len(selects) >= 3:
+                        selects[0].select_option(index=random.randint(1, 28))
+                        selects[1].select_option(index=random.randint(1, 12))
+                        year_val = str(random.randint(1990, 2005))
+                        selects[2].select_option(label=year_val)
+                        log("Data de nascimento selecionada nos selects nativos.", "INFO")
             except Exception as e:
-                log(f"Aviso ao preencher data de nascimento inicial: {e}", "INFO")
+                log(f"Aviso ao preencher data de nascimento: {e}", "INFO")
 
             time.sleep(2)
 
@@ -397,16 +429,34 @@ def create_instagram_account(args, sms_api, account_idx):
 
                 # Preencher o código recebido
                 log("Inserindo código de verificação no Instagram...", "INFO")
-                code_input = page.locator("input[name='email_confirmation_code'], input[name='confirmationCode'], input[placeholder='Código de confirmação']")
-                if code_input.count() > 0:
-                    code_input.first.fill(sms_code)
-                else:
-                    page.fill("input", sms_code)
+                try:
+                    # Tenta os seletores clássicos
+                    code_input = page.locator("input[name='email_confirmation_code'], input[name='confirmationCode'], input[placeholder='Código de confirmação']")
+                    if code_input.count() > 0:
+                        code_input.first.fill(sms_code, timeout=5000)
+                    else:
+                        # Se não encontrar os clássicos, preenche o primeiro input de texto/número visível que representa o campo de código
+                        page.locator("input[type='text']:visible, input[type='number']:visible, input:visible").first.fill(sms_code, timeout=5000)
+                except Exception:
+                    # Fallback genérico para preencher o primeiro input visível
+                    try:
+                        page.locator("input:visible").first.fill(sms_code, timeout=5000)
+                    except Exception as e:
+                        log(f"Erro ao preencher o código no input: {e}", "ERRO")
 
                 time.sleep(2)
                 
-                confirm_button = page.locator("button[type='submit'], button:has-text('Avançar'), button:has-text('Confirmar')")
-                confirm_button.first.click()
+                log("Confirmando código...", "INFO")
+                try:
+                    confirm_button = page.locator("button[type='submit'], button:has-text('Avançar'), button:has-text('Confirmar')")
+                    confirm_button.first.click(timeout=5000)
+                except Exception:
+                    # Fallback: clica no último botão visível ou elemento clicável com texto de confirmação
+                    for btn_text in ["Confirmar", "Avançar", "Próximo", "Next", "Confirm", "Enviar"]:
+                        btn = page.get_by_text(btn_text).last
+                        if btn.count() > 0:
+                            btn.click()
+                            break
                 time.sleep(10)
 
             # Verificar se fomos para a página logada
