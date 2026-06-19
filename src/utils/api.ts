@@ -693,3 +693,23 @@ export async function resetManualFlow() {
   return await res.json();
 }
 
+export async function confirmManualSuccess() {
+  const res = await fetch(`${getCreatorApiBase()}/api/manual-flow`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ action: 'user_confirmed' })
+  });
+  if (!res.ok) throw new Error('Falha ao confirmar sucesso manual');
+  return await res.json();
+}
+
+export async function confirmManualFailed() {
+  const res = await fetch(`${getCreatorApiBase()}/api/manual-flow`, {
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ action: 'user_failed' })
+  });
+  if (!res.ok) throw new Error('Falha ao confirmar falha manual');
+  return await res.json();
+}
+

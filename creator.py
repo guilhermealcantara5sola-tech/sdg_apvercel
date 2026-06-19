@@ -248,7 +248,7 @@ def create_instagram_account(args, sms_api, account_idx):
 
     # Inicializar Playwright
     with sync_playwright() as p:
-        browser_args = []
+        browser_args = ["--start-minimized"]
         if args.proxy:
             log(f"Utilizando proxy: {args.proxy}", "PROXY")
             proxy_parts = args.proxy.split(":")
@@ -459,18 +459,53 @@ def create_instagram_account(args, sms_api, account_idx):
                             break
                 time.sleep(10)
 
-            # Verificar se fomos para a página logada
-            log("Verificando se a conta foi criada e logada...", "INFO")
+            # Verificar se fomos para a página logada ou se o usuário confirmou no painel
+            log("Aguardando verificação final da conta...", "INFO")
             
             success = False
-            for _ in range(6):
-                if "instagram.com" in page.url and "signup" not in page.url and "emailsignup" not in page.url:
-                    success = True
-                    break
-                if page.query_selector("[aria-label='Página inicial'], [aria-label='Home'], [aria-label='Pesquisa'], a[href*='/accounts/edit/']"):
-                    success = True
-                    break
-                time.sleep(3)
+            is_manual = (sms_api and sms_api.__class__.__name__ == "ManualSmsAPI")
+            
+            if is_manual:
+                sms_api._write_flow({
+                    "status": "pending_user_confirmation",
+                    "username": username,
+                    "password": password
+                })
+                log(f"[MANUAL_SMS] IMPORTANTE: Verifique o navegador e clique em 'Confirmar e Salvar' no painel se a conta @{username} deu certo.", "SMS")
+                
+                # Aguarda confirmação do usuário por até 5 minutos (150 loops de 2s)
+                for _ in range(150):
+                    time.sleep(2)
+                    flow = sms_api._read_flow()
+                    if flow.get("status") == "user_confirmed":
+                        success = True
+                        log("[MANUAL_SMS] Criação de conta confirmada com sucesso pelo usuário no painel!", "SUCESSO")
+                        break
+                    elif flow.get("status") == "user_failed":
+                        success = False
+                        log("[MANUAL_SMS] Criação de conta marcada como falha pelo usuário no painel.", "ERRO")
+                        break
+                else:
+                    log("[MANUAL_SMS] Tempo esgotado aguardando confirmação. Fazendo verificação automática...", "AVISO")
+                    # Fallback auto check
+                    for _ in range(6):
+                        if "instagram.com" in page.url and "signup" not in page.url and "emailsignup" not in page.url:
+                            success = True
+                            break
+                        if page.query_selector("[aria-label='Página inicial'], [aria-label='Home'], [aria-label='Pesquisa'], a[href*='/accounts/edit/']"):
+                            success = True
+                            break
+                        time.sleep(3)
+            else:
+                # Checagem automática para provedores automáticos (5sim)
+                for _ in range(6):
+                    if "instagram.com" in page.url and "signup" not in page.url and "emailsignup" not in page.url:
+                        success = True
+                        break
+                    if page.query_selector("[aria-label='Página inicial'], [aria-label='Home'], [aria-label='Pesquisa'], a[href*='/accounts/edit/']"):
+                        success = True
+                        break
+                    time.sleep(3)
 
             if success:
                 log(f"SUCESSO: Conta @{username} criada e validada com sucesso!", "SUCESSO")

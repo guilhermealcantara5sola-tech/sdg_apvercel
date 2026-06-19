@@ -99,6 +99,10 @@ def post_manual_flow():
     elif action == 'submit_code':
         flow['status'] = 'code_submitted'
         flow['code'] = data.get('code')
+    elif action == 'user_confirmed':
+        flow['status'] = 'user_confirmed'
+    elif action == 'user_failed':
+        flow['status'] = 'user_failed'
     elif action == 'reset':
         flow = {"status": "idle"}
     save_manual_flow(flow)

@@ -15,7 +15,9 @@ import {
   stopCreator,
   fetchManualFlow,
   submitManualPhone,
-  submitManualCode
+  submitManualCode,
+  confirmManualSuccess,
+  confirmManualFailed
 } from '../utils/api';
 import { 
   UserPlus, 
@@ -1608,7 +1610,7 @@ const AccountAutomation: React.FC = () => {
           </div>
 
           {/* Interface para Fluxo Manual de SMS */}
-          {manualFlowState && (manualFlowState.status === 'pending_phone' || manualFlowState.status === 'pending_code') && (
+          {manualFlowState && (manualFlowState.status === 'pending_phone' || manualFlowState.status === 'pending_code' || manualFlowState.status === 'pending_user_confirmation') && (
             <div className="bg-purple-950/20 border border-purple-500/30 rounded-2xl p-4 shadow-xl space-y-4 animate-pulse mb-4 text-zinc-100">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl">
@@ -1683,6 +1685,55 @@ const AccountAutomation: React.FC = () => {
                   >
                     {submittingFlow ? 'Enviando...' : 'Enviar Código SMS'}
                   </button>
+                </div>
+              )}
+
+              {manualFlowState.status === 'pending_user_confirmation' && (
+                <div className="space-y-3">
+                  <div className="bg-zinc-950/60 p-3 rounded-xl border border-purple-500/20 text-xs space-y-2">
+                    <p className="font-semibold text-gray-200">
+                      O robô terminou de processar o código SMS.
+                    </p>
+                    <p className="text-zinc-300 text-[11px]">
+                      Dê uma olhada rápida no navegador: a conta <span className="font-bold text-yellow-400">@{manualFlowState.username}</span> foi criada com sucesso e está logada?
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={async () => {
+                        setSubmittingFlow(true);
+                        try {
+                          await confirmManualSuccess();
+                          loadAccounts();
+                          loadFullAccounts();
+                        } catch (err) {
+                          alert('Falha ao confirmar criação da conta.');
+                        } finally {
+                          setSubmittingFlow(false);
+                        }
+                      }}
+                      disabled={submittingFlow}
+                      className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow"
+                    >
+                      Sim, Deu Certo! Salvar
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setSubmittingFlow(true);
+                        try {
+                          await confirmManualFailed();
+                        } catch (err) {
+                          alert('Falha ao enviar aviso de erro.');
+                        } finally {
+                          setSubmittingFlow(false);
+                        }
+                      }}
+                      disabled={submittingFlow}
+                      className="py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow"
+                    >
+                      Não, Deu Erro
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
