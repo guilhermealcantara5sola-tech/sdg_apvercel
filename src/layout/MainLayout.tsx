@@ -25,8 +25,8 @@ const MainLayout: React.FC = () => {
         )}
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-          <main className="p-4 sm:p-6 flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <main className="p-4 sm:p-6 flex-1 flex flex-col overflow-hidden">
             <Outlet />
           </main>
         </div>

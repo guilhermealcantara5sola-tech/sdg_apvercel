@@ -461,6 +461,7 @@ const Broadcast: React.FC = () => {
 
   // Filtrar lista de seguidores
   const filteredFollowers = followers.filter(f => {
+    if (!f || !f.username || typeof f.username !== 'string') return false;
     const matchesSearch = f.username.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGender = genderFilter === 'Todos' || f.gender === genderFilter;
     const matchesAge = ageFilter === 'Todos' || f.age_group === ageFilter;
@@ -733,8 +734,8 @@ const Broadcast: React.FC = () => {
   const citiesList = ['Todas', 'Almenara', 'Belo Horizonte', 'Araçuaí', 'Rubim', 'Jacinto', 'Outras'];
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+    <div className="flex flex-col lg:h-full lg:overflow-hidden space-y-4 max-w-6xl mx-auto w-full">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm shrink-0">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Disparo de Mensagens</h2>
           <p className="text-gray-500 text-sm">Envie mensagens automatizadas em massa com rotatividade de contas e filtros avançados.</p>
@@ -787,7 +788,7 @@ const Broadcast: React.FC = () => {
       </div>
 
       {/* Menu de Abas da Campanha */}
-      <div className="flex flex-wrap border-b border-gray-200 gap-6 mb-6">
+      <div className="flex flex-wrap border-b border-gray-200 gap-6 mb-2 shrink-0">
         <button
           onClick={() => {
             setActiveTab('directs');
@@ -836,10 +837,11 @@ const Broadcast: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Tab Content */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
         
         {/* Coluna da Esquerda: Configurações da Aba Ativa */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 flex flex-col lg:overflow-y-auto lg:pr-1 lg:scrollbar-thin space-y-6">
           
           {/* ABA: CONTAS DO INSTAGRAM */}
           {activeTab === 'accounts' && (
@@ -1518,11 +1520,11 @@ const Broadcast: React.FC = () => {
         </div>
 
         {/* Coluna da Direita: Terminal & Destinatários */}
-        <div className="space-y-6">
+        <div className="flex flex-col lg:overflow-hidden space-y-4">
           
           {/* Logs / Console em Tempo Real */}
-          <div className="bg-gray-900 rounded-2xl p-6 shadow-lg border border-gray-800 space-y-4">
-            <div className="flex items-center justify-between border-b border-gray-800 pb-3">
+          <div className="bg-gray-900 rounded-2xl p-4 shadow-lg border border-gray-800 shrink-0 flex flex-col h-[220px] space-y-2">
+            <div className="flex items-center justify-between border-b border-gray-800 pb-2">
               <div className="flex items-center gap-2 text-green-400 font-mono text-sm">
                 <Terminal size={18} />
                 <span>Atividade do Console</span>
@@ -1537,10 +1539,13 @@ const Broadcast: React.FC = () => {
             </div>
             
             {/* Terminal View */}
-            <div ref={terminalRef} className="h-64 overflow-y-auto font-mono text-xs text-green-300 space-y-1.5 pr-2">
-              {botLogs.map((log: string, idx: number) => (
-                <div key={idx} className="leading-relaxed whitespace-pre-wrap">{log}</div>
-              ))}
+            <div ref={terminalRef} className="flex-1 overflow-y-auto font-mono text-xs text-green-300 space-y-1.5 pr-2">
+              {botLogs.map((log: any, idx: number) => {
+                const safeLog = typeof log === 'string' ? log : (log ? JSON.stringify(log) : '');
+                return (
+                  <div key={idx} className="leading-relaxed whitespace-pre-wrap">{safeLog}</div>
+                );
+              })}
               {botLogs.length === 0 && (
                 <div className="text-gray-500 italic">O console aguarda o início do processo...</div>
               )}
@@ -1599,7 +1604,7 @@ const Broadcast: React.FC = () => {
           </div>
 
           {/* Seleção de Leads (Direita) */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-[600px]">
+          <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex flex-col lg:flex-1 lg:min-h-0 h-[450px] lg:overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 text-purple-600 font-bold">
                 <Users size={20} />
@@ -1707,8 +1712,8 @@ const Broadcast: React.FC = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-50 p-2">
-                  {filteredFollowers.map((follower) => (
-                    <label key={follower.username} className="flex items-center gap-3 py-2 px-1 hover:bg-purple-50/20 rounded-lg cursor-pointer transition-colors text-xs">
+                  {filteredFollowers.map((follower, idx) => (
+                    <label key={follower.username + '-' + idx} className="flex items-center gap-3 py-2 px-1 hover:bg-purple-50/20 rounded-lg cursor-pointer transition-colors text-xs">
                       <input
                         type="checkbox"
                         disabled={isRunning}

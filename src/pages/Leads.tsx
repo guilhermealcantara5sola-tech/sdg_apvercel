@@ -53,6 +53,7 @@ const Leads: React.FC = () => {
 
   // Filtrar
   const filteredFollowers = followers.filter(f => {
+    if (!f || !f.username || typeof f.username !== 'string') return false;
     const matchesSearch = f.username.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGender = genderFilter === 'Todos' || f.gender === genderFilter;
     const matchesAge = ageFilter === 'Todos' || f.age_group === ageFilter;
@@ -158,7 +159,7 @@ const Leads: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 h-full overflow-y-auto pr-2 scrollbar-thin">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm animate-fadeIn">
         <div>
@@ -360,8 +361,8 @@ const Leads: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredFollowers.slice(0, visibleCount).map((follower) => (
-                    <tr key={follower.username} className="hover:bg-gray-50/50 transition-colors">
+                  {filteredFollowers.slice(0, visibleCount).map((follower, idx) => (
+                    <tr key={follower.username + '-' + idx} className="hover:bg-gray-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <img 
@@ -425,8 +426,8 @@ const Leads: React.FC = () => {
 
             {/* Mobile Cards View */}
             <div className="block md:hidden divide-y divide-gray-100">
-              {filteredFollowers.slice(0, visibleCount).map((follower) => (
-                <div key={follower.username} className="p-4 space-y-3">
+              {filteredFollowers.slice(0, visibleCount).map((follower, idx) => (
+                <div key={follower.username + '-' + idx} className="p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <img 

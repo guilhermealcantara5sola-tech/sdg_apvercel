@@ -362,7 +362,7 @@ export async function fetchChatMessages(folderId: string) {
     if (chatData && chatData.messages) {
       chatData.messages = chatData.messages.map((m: any) => ({
         ...m,
-        isMe: m.isMe === true || m.sender.toLowerCase().includes('thenperson') || m.sender.toLowerCase().includes('oriebir')
+        isMe: m.isMe === true || (m.sender && typeof m.sender === 'string' && (m.sender.toLowerCase().includes('thenperson') || m.sender.toLowerCase().includes('oriebir')))
       }));
     }
     return chatData;

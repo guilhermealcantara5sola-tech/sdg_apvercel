@@ -24,8 +24,8 @@ const Inbox: React.FC = () => {
           const matchedChat = chatsList.find((c: any) => 
             c.id === urlChatId || 
             c.sender === urlChatId || 
-            c.id.split('_')[0] === urlChatId ||
-            c.sender.toLowerCase().includes(urlChatId.toLowerCase())
+            (c.id && typeof c.id === 'string' && c.id.split('_')[0] === urlChatId) ||
+            (c.sender && typeof c.sender === 'string' && c.sender.toLowerCase().includes(urlChatId.toLowerCase()))
           );
           if (matchedChat) {
             setSelectedChat(matchedChat);
@@ -64,11 +64,12 @@ const Inbox: React.FC = () => {
   }, [selectedChat]);
 
   const filteredChats = chats.filter(chat => 
-    chat.sender.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase())
+    (chat.sender && typeof chat.sender === 'string' && chat.sender.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (chat.lastMessage && typeof chat.lastMessage === 'string' && chat.lastMessage.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  const isCandidate = (senderName: string) => {
+  const isCandidate = (senderName: any) => {
+    if (!senderName || typeof senderName !== 'string') return false;
     const name = senderName.toLowerCase();
     return name.includes('thenperson') || name.includes('oriebir');
   };

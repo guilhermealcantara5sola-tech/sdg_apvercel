@@ -107,7 +107,7 @@ const Analytics: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto h-full overflow-y-auto pr-2 scrollbar-thin">
       
       {/* Header */}
       <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-6 text-zinc-100 shadow-xl relative overflow-hidden glow-border-purple">

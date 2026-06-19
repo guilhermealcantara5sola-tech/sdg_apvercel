@@ -609,13 +609,13 @@ const AccountAutomation: React.FC = () => {
 
   // Filtering leads search
   const filteredSystemLeads = systemLeads.filter(lead => 
-    lead.username.toLowerCase().includes(searchTerm.toLowerCase())
+    lead && lead.username && typeof lead.username === 'string' && lead.username.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="flex flex-col lg:h-full lg:overflow-hidden space-y-4 max-w-6xl mx-auto w-full">
       {/* Header and description */}
-      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-6 text-zinc-100 shadow-xl relative overflow-hidden glow-border-purple">
+      <div className="bg-zinc-900/90 border border-zinc-800/80 rounded-2xl p-4 text-zinc-100 shadow-xl relative overflow-hidden glow-border-purple shrink-0">
         <div className="absolute right-0 top-0 opacity-5 transform translate-x-1/4 -translate-y-1/4 scale-150 text-purple-500">
           <Cpu size={250} />
         </div>
@@ -634,7 +634,7 @@ const AccountAutomation: React.FC = () => {
       </div>
 
       {/* VS Code Editor File Tabs */}
-      <div className="flex bg-[#121214] border border-[#2d2d34] overflow-x-auto select-none rounded-t-xl w-fit">
+      <div className="flex bg-[#121214] border border-[#2d2d34] overflow-x-auto select-none rounded-t-xl w-fit shrink-0">
         <button
           onClick={() => setActiveTab('accounts')}
           className={`px-4 py-2 text-xs flex items-center gap-2 border-r border-[#2d2d34] border-t-2 transition-all ${
@@ -682,10 +682,10 @@ const AccountAutomation: React.FC = () => {
       </div>
 
       {/* Main Tab Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:flex-1 lg:min-h-0 lg:overflow-hidden">
         
         {/* Left / Middle: Configuration Area (spans 2 columns) */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 flex flex-col lg:overflow-y-auto lg:pr-1 lg:scrollbar-thin space-y-6">
           
           {/* TAB 1: CONNECT & MANAGE ACCOUNTS */}
           {activeTab === 'accounts' && (
@@ -773,8 +773,8 @@ const AccountAutomation: React.FC = () => {
                       Nenhuma conta conectada no momento. Use o formulário acima para conectar.
                     </div>
                   ) : (
-                    savedAccounts.map((acc) => (
-                      <div key={acc.username} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
+                    savedAccounts.map((acc, idx) => (
+                      <div key={acc.username + '-' + idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-sm">
                             {(acc.username || '').charAt(0).toUpperCase()}
@@ -850,9 +850,9 @@ const AccountAutomation: React.FC = () => {
                   {savedAccounts.length === 0 ? (
                     <span className="text-xs text-gray-400 p-2">Nenhuma conta cadastrada. Conecte contas primeiro.</span>
                   ) : (
-                    savedAccounts.map((acc) => (
+                    savedAccounts.map((acc, idx) => (
                       <button
-                        key={acc.username}
+                        key={acc.username + '-' + idx}
                         onClick={() => toggleSenderAccount(acc.username)}
                         className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${
                           selectedSenderAccounts.includes(acc.username)
@@ -951,9 +951,9 @@ const AccountAutomation: React.FC = () => {
                       {filteredSystemLeads.length === 0 ? (
                         <div className="text-center py-4 text-xs text-gray-400">Nenhum lead encontrado.</div>
                       ) : (
-                        filteredSystemLeads.map((lead) => (
+                        filteredSystemLeads.map((lead, idx) => (
                           <div 
-                            key={lead.username} 
+                            key={lead.username + '-' + idx} 
                             onClick={() => {
                               setSelectedSystemLeads(prev => 
                                 prev.includes(lead.username) ? prev.filter(u => u !== lead.username) : [...prev, lead.username]
@@ -1102,9 +1102,9 @@ const AccountAutomation: React.FC = () => {
                   {savedAccounts.length === 0 ? (
                     <span className="text-xs text-gray-400 p-2">Nenhuma conta cadastrada. Conecte contas primeiro.</span>
                   ) : (
-                    savedAccounts.map((acc) => (
+                    savedAccounts.map((acc, idx) => (
                       <button
-                        key={acc.username}
+                        key={acc.username + '-' + idx}
                         onClick={() => togglePostAccount(acc.username)}
                         className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-all ${
                           postAccounts.includes(acc.username)
@@ -1460,10 +1460,10 @@ const AccountAutomation: React.FC = () => {
         </div>
 
         {/* Right Column: Execution Status & Real-time Logs Console */}
-        <div className="space-y-6">
+        <div className="flex flex-col lg:overflow-hidden space-y-4">
           
           {/* Status box */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4 shrink-0">
             <h3 className="text-base font-bold text-gray-800">
               {activeTab === 'create_accounts' ? 'Status do Criador' : 'Status do Robô'}
             </h3>
@@ -1521,11 +1521,9 @@ const AccountAutomation: React.FC = () => {
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* Logs Terminal Console */}
-          <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 flex flex-col h-[400px]">
+          {/* Logs Terminal Console */}
+          <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 flex flex-col lg:flex-1 lg:min-h-0 h-[300px]">
             <div className="bg-gray-800/80 px-4 py-2 border-b border-gray-800 rounded-t-2xl flex items-center justify-between text-white">
               <div className="flex items-center gap-2 text-xs font-bold font-mono">
                 <Terminal size={14} className="text-pink-500" />
@@ -1599,8 +1597,11 @@ const AccountAutomation: React.FC = () => {
               <div ref={logEndRef} />
             </div>
           </div>
+
         </div>
-      );
+      </div>
+    </div>
+  );
     };
 
 export default AccountAutomation;

@@ -30,7 +30,7 @@ const Posts: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 h-full overflow-y-auto pr-2 scrollbar-thin">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Gestão de Conteúdo</h2>
