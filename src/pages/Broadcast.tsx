@@ -443,10 +443,11 @@ const Broadcast: React.FC = () => {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const names = text.split(/[\n,;]/).map(n => n.trim().replace('@', '')).filter(n => n);
+      const text = event.target?.result as string || '';
+      const names = text.split(/[\n,;]/).map((n: string) => n.trim().replace('@', '')).filter((n: string) => n);
       if (names.length > 0) {
         setManualLeads(prev => {
-          const current = prev.split(/[\n,;\s]+/).map(l => l.trim().replace('@', '')).filter(l => l);
+          const current = prev.split(/[\n,;\s]+/).map((l: string) => l.trim().replace('@', '')).filter((l: string) => l);
           const merged = Array.from(new Set([...current, ...names]));
           return merged.join('\n');
         });
