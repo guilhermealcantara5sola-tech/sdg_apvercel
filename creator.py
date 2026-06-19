@@ -298,21 +298,51 @@ def create_instagram_account(args, sms_api, account_idx):
 
             # Preencher formulário
             log("Preenchendo formulário de cadastro...", "INFO")
-            page.fill("input[name='emailOrPhone']", phone_number)
-            page.fill("input[name='fullName']", full_name)
-            page.fill("input[name='username']", username)
-            page.fill("input[name='password']", password)
+            try:
+                page.fill("input[name='emailOrPhone']", phone_number, timeout=4000)
+                page.fill("input[name='fullName']", full_name, timeout=4000)
+                page.fill("input[name='username']", username, timeout=4000)
+                page.fill("input[name='password']", password, timeout=4000)
+            except Exception:
+                log("Detectada nova interface de cadastro do Instagram/Meta. Usando seletores dinâmicos...", "INFO")
+                # Seleciona os inputs com base na ordem e tipo na nova página
+                text_inputs = page.locator("input[type='text']")
+                password_input = page.locator("input[type='password']").first
+                username_input = page.locator("input[type='search'], input[aria-label*='usuário']").first
+                
+                text_inputs.nth(0).fill(phone_number)
+                text_inputs.nth(1).fill(full_name)
+                password_input.fill(password)
+                username_input.fill(username)
+
+            # Preencher data de nascimento se os selects estiverem na mesma tela (nova interface)
+            try:
+                selects = page.query_selector_all("select")
+                if len(selects) >= 3:
+                    # Ordem padrão: Dia, Mês, Ano na interface em Português
+                    selects[0].select_option(index=random.randint(1, 28))
+                    selects[1].select_option(index=random.randint(1, 12))
+                    year_val = str(random.randint(1990, 2005))
+                    selects[2].select_option(label=year_val)
+                    log("Data de nascimento selecionada no formulário inicial.", "INFO")
+            except Exception as e:
+                log(f"Aviso ao preencher data de nascimento inicial: {e}", "INFO")
+
             time.sleep(2)
 
             # Clicar em cadastrar
             log("Enviando dados de cadastro...", "INFO")
-            submit_button = page.locator("button[type='submit']")
-            submit_button.click()
+            try:
+                submit_button = page.locator("button[type='submit']")
+                submit_button.click(timeout=4000)
+            except Exception:
+                # Na nova interface do Meta, o botão é um span com texto exato "Enviar"
+                page.get_by_text("Enviar", exact=True).last.click()
             time.sleep(4)
 
-            # Tela de aniversário
+            # Tela de aniversário (caso apareça separada como na interface antiga)
             if "birthday" in page.url or page.query_selector("select[title='Mês:']") or page.query_selector("select[title='Month:']"):
-                log("Preenchendo data de nascimento...", "INFO")
+                log("Preenchendo data de nascimento (etapa adicional)...", "INFO")
                 selects = page.query_selector_all("select")
                 if len(selects) >= 3:
                     selects[0].select_option(index=random.randint(1, 12))
