@@ -318,34 +318,61 @@ def create_instagram_account(args, sms_api, account_idx):
 
             # Preencher data de nascimento nos selects customizados (nova interface)
             try:
-                day_dropdown = page.locator("[aria-label='Selecionar o dia']")
-                month_dropdown = page.locator("[aria-label='Selecionar o mês']")
-                year_dropdown = page.locator("[aria-label='Selecionar o ano']")
+                day_dropdown = page.locator("[aria-label='Selecionar o dia'], [aria-label*='day' i], [aria-label*='dia' i]")
+                month_dropdown = page.locator("[aria-label='Selecionar o mês'], [aria-label*='month' i], [aria-label*='mês' i]")
+                year_dropdown = page.locator("[aria-label='Selecionar o ano'], [aria-label*='year' i], [aria-label*='ano' i]")
                 
-                if day_dropdown.count() > 0 and month_dropdown.count() > 0 and year_dropdown.count() > 0:
+                if day_dropdown.count() > 0 or month_dropdown.count() > 0 or year_dropdown.count() > 0:
                     log("Preenchendo data de nascimento nos dropdowns customizados...", "INFO")
                     
                     # 1. Selecionar Dia (1 a 28)
                     day_val = str(random.randint(1, 28))
-                    day_dropdown.click()
-                    time.sleep(1)
-                    page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{day_val}$")).first.click()
-                    time.sleep(0.5)
+                    if day_dropdown.count() > 0:
+                        day_dropdown.first.click()
+                        time.sleep(1)
+                        day_option = page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{day_val}$"))
+                        if day_option.count() > 0:
+                            day_option.first.click()
+                        else:
+                            page.locator("[role='option']:visible").nth(int(day_val) - 1).click()
+                        time.sleep(0.5)
                     
                     # 2. Selecionar Mês
-                    months = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
-                    month_val = random.choice(months)
-                    month_dropdown.click()
-                    time.sleep(1)
-                    page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{month_val}$")).first.click()
-                    time.sleep(0.5)
+                    months_pt = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+                    months_en = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+                    selected_idx = random.randint(0, 11)
+                    month_pt = months_pt[selected_idx]
+                    month_en = months_en[selected_idx]
+                    
+                    if month_dropdown.count() > 0:
+                        month_dropdown.first.click()
+                        time.sleep(1)
+                        option_pt = page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{month_pt}$", re.IGNORECASE))
+                        if option_pt.count() > 0:
+                            option_pt.first.click()
+                        else:
+                            option_en = page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{month_en}$", re.IGNORECASE))
+                            if option_en.count() > 0:
+                                option_en.first.click()
+                            else:
+                                page.locator("[role='option']:visible").nth(selected_idx).click()
+                        time.sleep(0.5)
                     
                     # 3. Selecionar Ano (1990 a 2005)
                     year_val = str(random.randint(1990, 2005))
-                    year_dropdown.click()
-                    time.sleep(1)
-                    page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{year_val}$")).first.click()
-                    time.sleep(0.5)
+                    if year_dropdown.count() > 0:
+                        year_dropdown.first.click()
+                        time.sleep(1)
+                        year_option = page.locator("[role='option']:visible").filter(has_text=re.compile(f"^{year_val}$"))
+                        if year_option.count() > 0:
+                            year_option.first.click()
+                        else:
+                            year_opt = page.locator(f"[role='option']:visible:has-text('{year_val}')")
+                            if year_opt.count() > 0:
+                                year_opt.first.click()
+                            else:
+                                page.locator("[role='option']:visible").nth(random.randint(20, 35)).click()
+                        time.sleep(0.5)
                     
                     log("Data de nascimento selecionada com sucesso nos dropdowns customizados.", "INFO")
                 else:
@@ -408,18 +435,25 @@ def create_instagram_account(args, sms_api, account_idx):
 
             # Código de confirmação por SMS
             if sms_api and activation_id:
-                provider_name = "SMS-Activate.org" if isinstance(sms_api, SmsActivateAPI) else "5sim.net"
-                log(f"Aguardando código de SMS do Instagram no {provider_name}...", "SMS")
+                is_manual = (sms_api.__class__.__name__ == "ManualSmsAPI")
                 sms_code = None
-                # Polling de até 3 minutos
-                for attempt in range(36):
+                
+                if is_manual:
+                    # No fluxo manual, get_sms_code bloqueia internamente aguardando o usuário digitar no painel.
+                    # Portanto, chamamos apenas UMA vez para evitar loops e resets de estado.
                     sms_code = sms_api.get_sms_code(activation_id)
-                    if sms_code:
-                        log(f"Código recebido: {sms_code}", "SMS")
-                        break
-                    if attempt % 6 == 0:
-                        log("Aguardando código SMS (verificando novamente em 5s)...", "SMS")
-                    time.sleep(5)
+                else:
+                    provider_name = "SMS-Activate.org" if isinstance(sms_api, SmsActivateAPI) else "5sim.net"
+                    log(f"Aguardando código de SMS do Instagram no {provider_name}...", "SMS")
+                    # Polling de até 3 minutos
+                    for attempt in range(36):
+                        sms_code = sms_api.get_sms_code(activation_id)
+                        if sms_code:
+                            log(f"Código recebido: {sms_code}", "SMS")
+                            break
+                        if attempt % 6 == 0:
+                            log("Aguardando código SMS (verificando novamente em 5s)...", "SMS")
+                        time.sleep(5)
 
                 if not sms_code:
                     log("ERRO: Tempo esgotado para o código de SMS chegar.", "ERRO")

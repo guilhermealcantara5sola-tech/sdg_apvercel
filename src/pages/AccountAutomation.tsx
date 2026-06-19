@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   fetchSavedAccounts, 
+  addSavedAccount,
   deleteSavedAccount, 
   verifySavedAccount, 
   postMedia, 
@@ -1610,134 +1611,159 @@ const AccountAutomation: React.FC = () => {
           </div>
 
           {/* Interface para Fluxo Manual de SMS */}
-          {manualFlowState && (manualFlowState.status === 'pending_phone' || manualFlowState.status === 'pending_code' || manualFlowState.status === 'pending_user_confirmation') && (
-            <div className="bg-purple-950/20 border border-purple-500/30 rounded-2xl p-4 shadow-xl space-y-4 animate-pulse mb-4 text-zinc-100">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-500/20 text-purple-300 rounded-xl">
-                  <Smartphone size={20} />
+          {manualFlowState && (manualFlowState.status === 'pending_phone' || manualFlowState.status === 'pending_code' || manualFlowState.status === 'pending_user_confirmation') && (() => {
+            const isConfirmation = manualFlowState.status === 'pending_user_confirmation';
+            return (
+              <div className={`border rounded-2xl p-4 shadow-xl space-y-4 mb-4 text-zinc-100 transition-all duration-300 ${
+                isConfirmation 
+                  ? 'bg-emerald-950/25 border-emerald-500/40 shadow-emerald-950/20' 
+                  : 'bg-purple-950/20 border-purple-500/30 animate-pulse'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl ${
+                    isConfirmation ? 'bg-emerald-500/20 text-emerald-300' : 'bg-purple-500/20 text-purple-300'
+                  }`}>
+                    {isConfirmation ? <CheckCircle2 size={20} /> : <Smartphone size={20} />}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 text-sm">
+                      {isConfirmation ? 'Confirmar Criação da Conta' : 'Ação Manual Requerida: Verificação de SMS'}
+                    </h4>
+                    <p className="text-xs text-gray-400">
+                      {isConfirmation 
+                        ? 'A conta foi criada com sucesso no navegador? Confirme abaixo para salvar.' 
+                        : 'O robô está aguardando os dados do seu chip físico para continuar.'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="font-bold text-gray-200 text-sm">Ação Manual Requerida: Verificação de SMS</h4>
-                  <p className="text-xs text-gray-400">O robô está aguardando os dados do seu chip físico para continuar.</p>
-                </div>
+
+                {manualFlowState.status === 'pending_phone' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-300 block">Número do Telefone / Chip (com DDD e DDI +55)</label>
+                      <input
+                        type="text"
+                        value={inputPhoneNumber}
+                        onChange={(e) => setInputPhoneNumber(e.target.value)}
+                        placeholder="Ex: +5511999999999"
+                        className="w-full px-3 py-2 border border-purple-800 rounded-lg text-sm bg-zinc-900 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!inputPhoneNumber.trim()) return;
+                        setSubmittingFlow(true);
+                        try {
+                          await submitManualPhone(inputPhoneNumber.trim());
+                          setInputPhoneNumber('');
+                        } catch (err) {
+                          alert('Falha ao enviar número do telefone.');
+                        } finally {
+                          setSubmittingFlow(false);
+                        }
+                      }}
+                      disabled={submittingFlow}
+                      className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                    >
+                      {submittingFlow ? 'Enviando...' : 'Enviar Número de Telefone'}
+                    </button>
+                  </div>
+                )}
+
+                {manualFlowState.status === 'pending_code' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-300 block">Código de Confirmação SMS (Recebido no celular)</label>
+                      <input
+                        type="text"
+                        value={inputSmsCode}
+                        onChange={(e) => setInputSmsCode(e.target.value)}
+                        placeholder="Ex: 123456"
+                        className="w-full px-3 py-2 border border-purple-800 rounded-lg text-sm bg-zinc-900 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!inputSmsCode.trim()) return;
+                        setSubmittingFlow(true);
+                        try {
+                          await submitManualCode(inputSmsCode.trim());
+                          setInputSmsCode('');
+                        } catch (err) {
+                          alert('Falha ao enviar código SMS.');
+                        } finally {
+                          setSubmittingFlow(false);
+                        }
+                      }}
+                      disabled={submittingFlow}
+                      className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
+                    >
+                      {submittingFlow ? 'Enviando...' : 'Enviar Código SMS'}
+                    </button>
+                  </div>
+                )}
+
+                {manualFlowState.status === 'pending_user_confirmation' && (
+                  <div className="space-y-3">
+                    <div className="bg-zinc-950/60 p-3 rounded-xl border border-purple-500/20 text-xs space-y-2">
+                      <p className="font-semibold text-gray-200">
+                        O robô terminou de processar o código SMS.
+                      </p>
+                      <p className="text-zinc-300 text-[11px]">
+                        Dê uma olhada rápida no navegador: a conta <span className="font-bold text-yellow-400">@{manualFlowState.username}</span> foi criada com sucesso e está logada?
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={async () => {
+                          setSubmittingFlow(true);
+                          try {
+                            await confirmManualSuccess();
+                            if (manualFlowState && manualFlowState.username && manualFlowState.password) {
+                              try {
+                                await addSavedAccount({
+                                  username: manualFlowState.username,
+                                  password: manualFlowState.password
+                                });
+                              } catch (e) {
+                                console.error('Erro ao salvar conta diretamente:', e);
+                              }
+                            }
+                            loadAccounts();
+                            loadFullAccounts();
+                          } catch (err) {
+                            alert('Falha ao confirmar criação da conta.');
+                          } finally {
+                            setSubmittingFlow(false);
+                          }
+                        }}
+                        disabled={submittingFlow}
+                        className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow"
+                      >
+                        Sim, Deu Certo! Salvar
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setSubmittingFlow(true);
+                          try {
+                            await confirmManualFailed();
+                          } catch (err) {
+                            alert('Falha ao enviar aviso de erro.');
+                          } finally {
+                            setSubmittingFlow(false);
+                          }
+                        }}
+                        disabled={submittingFlow}
+                        className="py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow"
+                      >
+                        Não, Deu Erro
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {manualFlowState.status === 'pending_phone' && (
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-300 block">Número do Telefone / Chip (com DDD e DDI +55)</label>
-                    <input
-                      type="text"
-                      value={inputPhoneNumber}
-                      onChange={(e) => setInputPhoneNumber(e.target.value)}
-                      placeholder="Ex: +5511999999999"
-                      className="w-full px-3 py-2 border border-purple-800 rounded-lg text-sm bg-zinc-900 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (!inputPhoneNumber.trim()) return;
-                      setSubmittingFlow(true);
-                      try {
-                        await submitManualPhone(inputPhoneNumber.trim());
-                        setInputPhoneNumber('');
-                      } catch (err) {
-                        alert('Falha ao enviar número do telefone.');
-                      } finally {
-                        setSubmittingFlow(false);
-                      }
-                    }}
-                    disabled={submittingFlow}
-                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                  >
-                    {submittingFlow ? 'Enviando...' : 'Enviar Número de Telefone'}
-                  </button>
-                </div>
-              )}
-
-              {manualFlowState.status === 'pending_code' && (
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-300 block">Código de Confirmação SMS (Recebido no celular)</label>
-                    <input
-                      type="text"
-                      value={inputSmsCode}
-                      onChange={(e) => setInputSmsCode(e.target.value)}
-                      placeholder="Ex: 123456"
-                      className="w-full px-3 py-2 border border-purple-800 rounded-lg text-sm bg-zinc-900 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                    />
-                  </div>
-                  <button
-                    onClick={async () => {
-                      if (!inputSmsCode.trim()) return;
-                      setSubmittingFlow(true);
-                      try {
-                        await submitManualCode(inputSmsCode.trim());
-                        setInputSmsCode('');
-                      } catch (err) {
-                        alert('Falha ao enviar código SMS.');
-                      } finally {
-                        setSubmittingFlow(false);
-                      }
-                    }}
-                    disabled={submittingFlow}
-                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-                  >
-                    {submittingFlow ? 'Enviando...' : 'Enviar Código SMS'}
-                  </button>
-                </div>
-              )}
-
-              {manualFlowState.status === 'pending_user_confirmation' && (
-                <div className="space-y-3">
-                  <div className="bg-zinc-950/60 p-3 rounded-xl border border-purple-500/20 text-xs space-y-2">
-                    <p className="font-semibold text-gray-200">
-                      O robô terminou de processar o código SMS.
-                    </p>
-                    <p className="text-zinc-300 text-[11px]">
-                      Dê uma olhada rápida no navegador: a conta <span className="font-bold text-yellow-400">@{manualFlowState.username}</span> foi criada com sucesso e está logada?
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={async () => {
-                        setSubmittingFlow(true);
-                        try {
-                          await confirmManualSuccess();
-                          loadAccounts();
-                          loadFullAccounts();
-                        } catch (err) {
-                          alert('Falha ao confirmar criação da conta.');
-                        } finally {
-                          setSubmittingFlow(false);
-                        }
-                      }}
-                      disabled={submittingFlow}
-                      className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow"
-                    >
-                      Sim, Deu Certo! Salvar
-                    </button>
-                    <button
-                      onClick={async () => {
-                        setSubmittingFlow(true);
-                        try {
-                          await confirmManualFailed();
-                        } catch (err) {
-                          alert('Falha ao enviar aviso de erro.');
-                        } finally {
-                          setSubmittingFlow(false);
-                        }
-                      }}
-                      disabled={submittingFlow}
-                      className="py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 shadow"
-                    >
-                      Não, Deu Erro
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* Logs Terminal Console */}
           <div className="bg-gray-900 rounded-2xl shadow-lg border border-gray-800 flex flex-col lg:flex-1 lg:min-h-0 h-[300px]">

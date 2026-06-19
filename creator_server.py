@@ -101,6 +101,18 @@ def post_manual_flow():
         flow['code'] = data.get('code')
     elif action == 'user_confirmed':
         flow['status'] = 'user_confirmed'
+        # Salva imediatamente no accounts.json do creator_server para evitar race conditions
+        username = flow.get('username')
+        password = flow.get('password')
+        if username and password:
+            try:
+                accounts_dict = load_saved_accounts()
+                accounts_dict[username] = password
+                with open(ACCOUNTS_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(accounts_dict, f, indent=2, ensure_ascii=False)
+                print(f"[creator_server] Conta @{username} salva imediatamente ao confirmar!")
+            except Exception as e:
+                print(f"[creator_server] Erro ao salvar conta imediatamente: {e}")
     elif action == 'user_failed':
         flow['status'] = 'user_failed'
     elif action == 'reset':
